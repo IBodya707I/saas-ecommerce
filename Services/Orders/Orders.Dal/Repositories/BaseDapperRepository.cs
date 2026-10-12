@@ -17,7 +17,6 @@ public abstract class BaseDapperRepository<T> : RepositoryBase, IGenericReposito
 {
     static BaseDapperRepository()
     {
-        // Enable snake_case (PostgreSQL) to PascalCase (C#) automatic column mapping
         DefaultTypeMap.MatchNamesWithUnderscores = true;
     }
 
