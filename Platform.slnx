@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/Services/">
+    <Project Path="Platform.AppHost/Platform.AppHost.csproj" Id="44d4387c-2358-44e7-870e-d894e57c1ad7" />
+  </Folder>
+  <Folder Name="/Services/Orders/">
+    <Project Path="Services/Orders/Orders.Api/Orders.Api.csproj" />
+    <Project Path="Services/Orders/Orders.Bll/Orders.Bll.csproj" />
+    <Project Path="Services/Orders/Orders.Dal/Orders.Dal.csproj" />
+    <Project Path="Services/Orders/Orders.Domain/Orders.Domain.csproj" />
+  </Folder>
+</Solution>
