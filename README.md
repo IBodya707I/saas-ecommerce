@@ -104,3 +104,109 @@ usp_change_order_status('019273c8-0004-7000-8000-000000000004',
 - ERROR:  Cannot ship unpaid prepaid order 019273c8-0004-7000-8000-000000000004
 - CONTEXT:  PL/pgSQL function usp_change_order_status(uuid,uuid,integer,character varying,character varying,character varying) line 33 at RAISE
 ```
+
+
+---
+
+## 4. Тришарова архітектура на базі ADO.NET та Dapper (.NET 10 & .NET Aspire)
+
+### 4.1. Архітектура та схема рішення (Project Structure)
+Мікросервіс **`Orders`** реалізовано як автономну вертикаль (Vertical Slice) з односпрямованим потоком залежностей `Api ➔ Bll ➔ Dal ➔ Domain`:
+* **`Services/Orders/Orders.Domain`**: сутності предметної області (`Customer`, `Order`, `OrderItem`, `OrderDetails`, `ProductLocal`, `OrderStatusHistory`) та доменні винятки (`NotFoundException`, `BusinessConflictException`, `ValidationException`).
+* **`Services/Orders/Orders.Dal`**: шар доступу до даних. Інкапсулює всі SQL-запити:
+  * Чистий ADO.NET (`CustomerRepository` на базі `NpgsqlConnection`/`NpgsqlCommand`);
+  * Dapper репозиторії з multi-mapping та викликами збережених процедур (`OrderRepository`, `ProductRepository`);
+  * `UnitOfWork` для координації транзакцій (`BeginTransactionAsync`, `CommitAsync`, `RollbackAsync`);
+  * Централізований мапінг винятків PostgreSQL (`PostgresExceptionMapper`).
+* **`Services/Orders/Orders.Bll`**: шар бізнес-логіки. Включає DTO для API, централізовані профілі AutoMapper (`OrderMappingProfile`), дворівневу валідацію (DataAnnotations + стан БД) та сервіси (`OrderService`, `CustomerService`).
+* **`Services/Orders/Orders.Api`**: тонкі асинхронні Web API контролери (`OrdersController`, `CustomersController`) з атрибутною маршрутизацією, `CancellationToken` та глобальним обробником помилок `DomainExceptionHandler` (RFC 7807 ProblemDetails).
+* **`Platform.AppHost`**: проєкт оркестрації .NET Aspire, який зв'язує API з базою даних `OrdersDb`.
+
+---
+
+### 4.2. Інструкція із запуску (How to Run)
+
+#### Варіант 1: Запуск через .NET Aspire (Рекомендовано)
+Запуск оркестратора однією командою з кореня репозиторію:
+```bash
+dotnet run --project Platform.AppHost
+```
+Після старту відкривається **Aspire Dashboard** (за адресою `https://localhost:17...`), де доступні метрики, трейси, логи та посилання на Swagger UI сервісу `orders-api`.
+
+#### Варіант 2: Автономний запуск Orders.Api
+```bash
+dotnet run --project Services/Orders/Orders.Api
+```
+Інтерактивна документація Swagger доступна за адресою:
+👉 `http://localhost:5096/swagger` (або `https://localhost:7071/swagger`).
+
+---
+
+### 4.3. Приклади HTTP-запитів до API (curl / Postman)
+
+#### 1. Створення клієнта (чистий ADO.NET + процедура `usp_create_customer`)
+```bash
+curl -X POST "http://localhost:5096/api/customers" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "storeId": "11111111-1111-1111-1111-111111111111",
+    "phone": "+380501112233",
+    "email": "ivan.petrenko@example.com",
+    "fullName": "Іван Петренко",
+    "password": "SecurePassword123!"
+  }'
+```
+*Очікувана відповідь:* `201 Created` із заголовком `Location` та даними створеного клієнта.
+
+#### 2. Оформлення замовлення (Dapper + процедура `usp_create_order` з резервуванням залишків)
+```bash
+curl -X POST "http://localhost:5096/api/orders" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "storeId": "11111111-1111-1111-1111-111111111111",
+    "customerPhone": "+380501112233",
+    "customerFullName": "Іван Петренко",
+    "customerEmail": "ivan.petrenko@example.com",
+    "deliveryProvider": "NovaPoshta",
+    "city": "Київ",
+    "warehouseAddress": "Відділення №15, вул. Хрещатик, 22",
+    "recipientPhone": "+380501112233",
+    "paymentMethod": "Prepaid",
+    "items": [
+      {
+        "productId": "019273c8-0001-7000-8000-000000000001",
+        "quantity": 2
+      }
+    ]
+  }'
+```
+*Очікувана відповідь:* `201 Created` з повним агрегатом замовлення `OrderDto`.
+
+#### 3. Підтвердження оплати (Транзакційна операція через UnitOfWork: Orders + Products)
+```bash
+curl -X POST "http://localhost:5096/api/orders/019273c8-0004-7000-8000-000000000004/pay?storeId=11111111-1111-1111-1111-111111111111"
+```
+*Очікувана відповідь:* `200 OK` (переводить замовлення `Prepaid` зі статусу `Submitted` в `Paid`).
+
+#### 4. Обробка бізнес-конфлікту (RFC 7807 ProblemDetails 409 Conflict)
+Спроба зміни статусу з конфліктом оптимістичного блокування версії (`expectedVersion = 999`):
+```bash
+curl -X PUT "http://localhost:5096/api/orders/019273c8-0004-7000-8000-000000000004/status" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "storeId": "11111111-1111-1111-1111-111111111111",
+    "expectedVersion": 999,
+    "newStatus": "Shipped",
+    "changedBy": "operator"
+  }'
+```
+*Очікувана відповідь:* `409 Conflict` у форматі ProblemDetails:
+```json
+{
+  "type": "about:blank",
+  "title": "Business Conflict",
+  "status": 409,
+  "detail": "Concurrency conflict for order 019273c8-0004-7000-8000-000000000004. Current version: 1, expected: 999",
+  "instance": "PUT /api/orders/019273c8-0004-7000-8000-000000000004/status"
+}
+```
