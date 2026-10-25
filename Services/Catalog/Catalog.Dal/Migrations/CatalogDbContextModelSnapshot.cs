@@ -633,23 +633,10 @@ namespace Catalog.Dal.Migrations
                         {
                             t.HasCheckConstraint("ck_users_phone", "phone IS NULL OR phone ~ '^\\+[1-9][0-9]{7,14}$'");
 
-                            t.HasCheckConstraint("ck_users_system_role", "system_role IN ('SuperAdmin', 'PlatformAdmin', 'Merchant', 'Staff')");
+                            t.HasCheckConstraint("ck_users_system_role", "system_role IN ('PlatformAdmin', 'Merchant', 'Staff')");
                         });
 
                     b.HasData(
-                        new
-                        {
-                            Id = new Guid("a0000000-0000-0000-0000-000000000001"),
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            CreatedBy = "seed",
-                            Email = "superadmin@platform.com",
-                            FullName = "Головний Супер Адміністратор",
-                            IsDeleted = false,
-                            PasswordHash = "$2a$11$e8.Z/yY5tW9uGqL1vH5jEOzR9q4bVxY4oJ7d8v7f7x9m9q9w9e9r9",
-                            Phone = "+380500000001",
-                            SystemRole = "SuperAdmin",
-                            Version = 1
-                        },
                         new
                         {
                             Id = new Guid("a1111111-1111-1111-1111-111111111111"),

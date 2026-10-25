@@ -1,5 +1,12 @@
+using Catalog.Api.Middlewares;
+using Catalog.Bll.Interfaces;
+using Catalog.Bll.Mapping;
+using Catalog.Bll.Services;
+using Catalog.Bll.Validators;
 using Catalog.Dal;
 using Catalog.Dal.Repositories;
+using Catalog.Dal.Seeding;
+using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 
@@ -28,16 +35,49 @@ builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<IStoreEmployeeRepository, StoreEmployeeRepository>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
+builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<ICategoryService, CategoryService>();
+builder.Services.AddScoped<IStoreService, StoreService>();
+
+builder.Services.AddAutoMapper(cfg => cfg.AddProfile<CatalogMappingProfile>());
+builder.Services.AddValidatorsFromAssemblyContaining<CreateProductDtoValidator>();
+
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<DomainExceptionHandler>();
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+app.UseExceptionHandler();
+app.UseSerilogRequestLogging();
+
+var isDevelopment = builder.Configuration.GetValue<bool>("IsDevelopment", builder.Environment.IsDevelopment());
+
+if (isDevelopment)
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+}
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
+    try
+    {
+        await db.Database.MigrateAsync();
+        if (isDevelopment)
+        {
+            await DbInitializer.SeedAsync(db);
+        }
+    }
+    catch (Exception ex)
+    {
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogWarning(ex, "Could not apply migrations or seed on startup: {Message}", ex.Message);
+    }
 }
 
 app.UseAuthorization();

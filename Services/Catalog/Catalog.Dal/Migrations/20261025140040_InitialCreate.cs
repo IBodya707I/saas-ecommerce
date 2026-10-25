@@ -34,7 +34,7 @@ namespace Catalog.Dal.Migrations
                 {
                     table.PrimaryKey("PK_users", x => x.id);
                     table.CheckConstraint("ck_users_phone", "phone IS NULL OR phone ~ '^\\+[1-9][0-9]{7,14}$'");
-                    table.CheckConstraint("ck_users_system_role", "system_role IN ('SuperAdmin', 'PlatformAdmin', 'Merchant', 'Staff')");
+                    table.CheckConstraint("ck_users_system_role", "system_role IN ('PlatformAdmin', 'Merchant', 'Staff')");
                 });
 
             migrationBuilder.CreateTable(
@@ -223,7 +223,6 @@ namespace Catalog.Dal.Migrations
                 columns: new[] { "id", "created_at", "created_by", "email", "full_name", "password_hash", "phone", "system_role", "updated_at", "updated_by", "version" },
                 values: new object[,]
                 {
-                    { new Guid("a0000000-0000-0000-0000-000000000001"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "seed", "superadmin@platform.com", "Головний Супер Адміністратор", "$2a$11$e8.Z/yY5tW9uGqL1vH5jEOzR9q4bVxY4oJ7d8v7f7x9m9q9w9e9r9", "+380500000001", "SuperAdmin", null, null, 1 },
                     { new Guid("a1111111-1111-1111-1111-111111111111"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "seed", "owner.parfums@example.com", "Богдан Рибонька", "$2a$11$e8.Z/yY5tW9uGqL1vH5jEOzR9q4bVxY4oJ7d8v7f7x9m9q9w9e9r9", "+380509998877", "Merchant", null, null, 1 },
                     { new Guid("a1111111-1111-1111-1111-222222222222"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "seed", "manager.parfums@example.com", "Тетяна Дмитрук", "$2a$11$e8.Z/yY5tW9uGqL1vH5jEOzR9q4bVxY4oJ7d8v7f7x9m9q9w9e9r9", "+380939998877", "Staff", null, null, 1 },
                     { new Guid("a2222222-2222-2222-2222-111111111111"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "seed", "owner.tech@example.com", "Олександр Петренко", "$2a$11$e8.Z/yY5tW9uGqL1vH5jEOzR9q4bVxY4oJ7d8v7f7x9m9q9w9e9r9", "+380679998877", "Merchant", null, null, 1 }
