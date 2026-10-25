@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Catalog.Domain.Exceptions;
 
 namespace Catalog.Domain.Entities;
@@ -16,7 +17,7 @@ public class ProductDetail
 
     public Product? Product { get; private set; }
 
-    private ProductDetail() { } 
+    private ProductDetail() { }
 
     public ProductDetail(
         Guid productId,
@@ -28,24 +29,40 @@ public class ProductDetail
             throw new DomainException("ProductId cannot be empty");
 
         ProductId = productId;
-        Characteristics = string.IsNullOrWhiteSpace(characteristics) ? "{}" : characteristics.Trim();
+        Characteristics = ValidateAndNormalizeJson(characteristics);
         Description = description?.Trim();
         CreatedAt = DateTime.UtcNow;
         CreatedBy = createdBy;
         IsDeleted = false;
     }
 
-    public void UpdateCharacteristics(string characteristics, string updatedBy)
+    public void UpdateCharacteristics(string characteristics, string updatedBy = "system")
     {
-        Characteristics = string.IsNullOrWhiteSpace(characteristics) ? "{}" : characteristics.Trim();
+        Characteristics = ValidateAndNormalizeJson(characteristics);
         UpdatedAt = DateTime.UtcNow;
         UpdatedBy = updatedBy;
     }
 
-    public void UpdateDescription(string? description, string updatedBy)
+    public void UpdateDescription(string? description, string updatedBy = "system")
     {
         Description = description?.Trim();
         UpdatedAt = DateTime.UtcNow;
         UpdatedBy = updatedBy;
+    }
+
+    private static string ValidateAndNormalizeJson(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return "{}";
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            return json.Trim();
+        }
+        catch (JsonException ex)
+        {
+            throw new DomainException($"Characteristics must be a valid JSON string: {ex.Message}", ex);
+        }
     }
 }
