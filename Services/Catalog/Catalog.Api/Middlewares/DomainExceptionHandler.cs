@@ -7,12 +7,12 @@ namespace Catalog.Api.Middlewares;
 public sealed class DomainExceptionHandler : IExceptionHandler
 {
     private readonly ILogger<DomainExceptionHandler> _logger;
-    private readonly IConfiguration _configuration;
+    private readonly IHostEnvironment _env;
 
-    public DomainExceptionHandler(ILogger<DomainExceptionHandler> logger, IConfiguration configuration)
+    public DomainExceptionHandler(ILogger<DomainExceptionHandler> logger, IHostEnvironment env)
     {
         _logger = logger;
-        _configuration = configuration;
+        _env = env;
     }
 
     public async ValueTask<bool> TryHandleAsync(
@@ -38,8 +38,23 @@ public sealed class DomainExceptionHandler : IExceptionHandler
             _logger.LogWarning("Domain exception [{StatusCode}]: {Message}", statusCode, exception.Message);
         }
 
-        var isDev = _configuration.GetValue<bool>("IsDevelopment", true);
-        var detail = isDev
+        if (exception is ValidationException valEx)
+        {
+            var valProblem = new ValidationProblemDetails(valEx.Errors)
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "Validation Error",
+                Detail = valEx.Message,
+                Instance = $"{httpContext.Request.Method} {httpContext.Request.Path}"
+            };
+            valProblem.Extensions["traceId"] = httpContext.TraceIdentifier;
+
+            httpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await httpContext.Response.WriteAsJsonAsync(valProblem, cancellationToken);
+            return true;
+        }
+
+        var detail = _env.IsDevelopment()
             ? (exception.InnerException?.Message ?? exception.Message)
             : (statusCode == StatusCodes.Status500InternalServerError ? "An unexpected error occurred" : exception.Message);
 
@@ -52,11 +67,6 @@ public sealed class DomainExceptionHandler : IExceptionHandler
         };
 
         problemDetails.Extensions["traceId"] = httpContext.TraceIdentifier;
-
-        if (exception is ValidationException valEx && valEx.Errors.Count > 0)
-        {
-            problemDetails.Extensions["errors"] = valEx.Errors;
-        }
 
         httpContext.Response.StatusCode = statusCode;
         await httpContext.Response.WriteAsJsonAsync(problemDetails, cancellationToken);

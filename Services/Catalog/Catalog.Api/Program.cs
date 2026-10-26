@@ -51,12 +51,10 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-app.UseExceptionHandler();
 app.UseSerilogRequestLogging();
+app.UseExceptionHandler();
 
-var isDevelopment = builder.Configuration.GetValue<bool>("IsDevelopment", builder.Environment.IsDevelopment());
-
-if (isDevelopment)
+if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
@@ -68,7 +66,7 @@ using (var scope = app.Services.CreateScope())
     try
     {
         await db.Database.MigrateAsync();
-        if (isDevelopment)
+        if (!app.Environment.IsProduction())
         {
             await DbInitializer.SeedAsync(db);
         }

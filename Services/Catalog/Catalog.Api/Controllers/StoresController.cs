@@ -29,9 +29,13 @@ public class StoresController : ControllerBase
     }
 
     [HttpGet("{id:guid}/employees")]
-    public async Task<ActionResult<IReadOnlyList<StoreEmployeeDto>>> GetEmployees(Guid id, CancellationToken ct)
+    public async Task<ActionResult<IReadOnlyList<StoreEmployeeDto>>> GetEmployees(
+        Guid id,
+        [FromQuery] string? role = null,
+        [FromQuery] DateTime? assignedSince = null,
+        CancellationToken ct = default)
     {
-        var employees = await _storeService.GetEmployeesAsync(id, ct);
+        var employees = await _storeService.GetEmployeesAsync(id, role, assignedSince, ct);
         return Ok(employees);
     }
 
