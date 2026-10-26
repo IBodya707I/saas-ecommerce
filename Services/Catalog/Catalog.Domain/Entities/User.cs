@@ -23,7 +23,7 @@ public class User
 
     private static readonly HashSet<string> ValidSystemRoles = new(StringComparer.OrdinalIgnoreCase)
     {
-        "SuperAdmin", "PlatformAdmin", "Merchant", "Staff"
+        "PlatformAdmin", "Merchant", "Staff"
     };
 
     private User() { } 
@@ -50,7 +50,7 @@ public class User
             throw new DomainException("Full name is required");
 
         if (!ValidSystemRoles.Contains(systemRole.Trim()))
-            throw new DomainException($"Invalid system role: {systemRole}. Allowed roles: SuperAdmin, PlatformAdmin, Merchant, Staff");
+            throw new DomainException($"Invalid system role: {systemRole}. Allowed roles: PlatformAdmin, Merchant, Staff");
 
         Id = id;
         Email = email.Trim().ToLowerInvariant();

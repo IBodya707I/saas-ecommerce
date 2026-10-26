@@ -102,6 +102,10 @@ public class CategoryService : ICategoryService
     {
         _uow.SetStoreContext(dto.StoreId);
 
+        var existing = await _uow.Categories.GetAllAsync(ct);
+        if (existing.Any(c => string.Equals(c.Slug, dto.Slug, StringComparison.OrdinalIgnoreCase) && !c.IsDeleted))
+            throw new ConflictException($"Category with slug '{dto.Slug}' already exists in this store");
+
         var category = new Category(
             Guid.NewGuid(),
             dto.StoreId,
@@ -123,6 +127,14 @@ public class CategoryService : ICategoryService
             throw new NotFoundException($"Category with ID '{id}' was not found");
 
         _uow.SetStoreContext(category.StoreId);
+
+        if (!string.Equals(category.Slug, dto.Slug, StringComparison.OrdinalIgnoreCase))
+        {
+            var existing = await _uow.Categories.GetAllAsync(ct);
+            if (existing.Any(c => c.Id != id && string.Equals(c.Slug, dto.Slug, StringComparison.OrdinalIgnoreCase) && !c.IsDeleted))
+                throw new ConflictException($"Category with slug '{dto.Slug}' already exists in this store");
+        }
+
         category.Update(dto.Name, dto.Slug, "system");
         category.SetParentCategory(dto.ParentCategoryId, "system");
 

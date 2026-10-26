@@ -60,6 +60,8 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class
 
     protected IQueryable<T> ApplySpecification(ISpecification<T> spec, bool evaluateCriteriaOnly = false)
     {
-        return SpecificationEvaluator.Default.GetQuery(Set.AsQueryable(), spec, evaluateCriteriaOnly);
+        return evaluateCriteriaOnly
+            ? SpecificationEvaluator.Default.GetQuery(Set.AsQueryable(), spec, evaluateCriteriaOnly: true)
+            : Set.WithSpecification(spec);
     }
 }

@@ -27,15 +27,23 @@ public class StoreService : IStoreService
         return _mapper.Map<StoreDto>(store);
     }
 
-    public async Task<IReadOnlyList<StoreEmployeeDto>> GetEmployeesAsync(Guid storeId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<StoreEmployeeDto>> GetEmployeesAsync(
+        Guid storeId,
+        string? role = null,
+        DateTime? assignedSince = null,
+        CancellationToken ct = default)
     {
         _uow.SetStoreContext(storeId);
-        var employees = await _uow.StoreEmployees.GetActiveStoreEmployeesWithUsersAsync(storeId, ct);
+        var employees = await _uow.StoreEmployees.GetActiveStoreEmployeesWithUsersAsync(storeId, role, assignedSince, ct);
         return _mapper.Map<IReadOnlyList<StoreEmployeeDto>>(employees);
     }
 
     public async Task<StoreDto> CreateAsync(CreateStoreDto dto, CancellationToken ct = default)
     {
+        var existingStores = await _uow.Stores.GetAllAsync(ct);
+        if (existingStores.Any(s => string.Equals(s.Slug, dto.Slug, StringComparison.OrdinalIgnoreCase) && !s.IsDeleted))
+            throw new ConflictException($"Store with slug '{dto.Slug}' already exists");
+
         var store = new Store(
             Guid.NewGuid(),
             dto.Name,
@@ -65,6 +73,10 @@ public class StoreService : IStoreService
         var user = await _uow.Users.GetByIdAsync(dto.UserId, ct);
         if (user == null || user.IsDeleted)
             throw new NotFoundException($"User with ID '{dto.UserId}' was not found");
+
+        var existingEmployees = await _uow.StoreEmployees.GetActiveStoreEmployeesWithUsersAsync(dto.StoreId, ct: ct);
+        if (existingEmployees.Any(e => e.UserId == dto.UserId))
+            throw new ConflictException($"User '{dto.UserId}' is already assigned to this store");
 
         var employee = new StoreEmployee(dto.StoreId, dto.UserId, dto.Role);
         await _uow.StoreEmployees.AddAsync(employee, ct);

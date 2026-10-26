@@ -5,8 +5,15 @@ namespace Catalog.Dal;
 
 public class CatalogDbContext : DbContext
 {
-    public CatalogDbContext(DbContextOptions<CatalogDbContext> options) : base(options)
+    private readonly ITenantContext? _tenantContext;
+
+    public Guid? CurrentStoreId => _tenantContext?.CurrentStoreId;
+
+    public CatalogDbContext(
+        DbContextOptions<CatalogDbContext> options,
+        ITenantContext? tenantContext = null) : base(options)
     {
+        _tenantContext = tenantContext;
     }
 
     public DbSet<User> Users => Set<User>();
@@ -22,5 +29,20 @@ public class CatalogDbContext : DbContext
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(CatalogDbContext).Assembly);
+
+        modelBuilder.Entity<Product>()
+            .HasQueryFilter(p => CurrentStoreId == null || p.StoreId == CurrentStoreId);
+
+        modelBuilder.Entity<ProductDetail>()
+            .HasQueryFilter(pd => CurrentStoreId == null || pd.Product!.StoreId == CurrentStoreId);
+
+        modelBuilder.Entity<ProductImage>()
+            .HasQueryFilter(pi => CurrentStoreId == null || pi.Product!.StoreId == CurrentStoreId);
+
+        modelBuilder.Entity<Category>()
+            .HasQueryFilter(c => CurrentStoreId == null || c.StoreId == CurrentStoreId);
+
+        modelBuilder.Entity<StoreEmployee>()
+            .HasQueryFilter(se => CurrentStoreId == null || se.StoreId == CurrentStoreId);
     }
 }

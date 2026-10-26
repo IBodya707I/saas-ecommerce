@@ -14,6 +14,8 @@ public class ProductRepository : GenericRepository<Product>, IProductRepository
         return await Set
             .Include(p => p.Detail)
             .Include(p => p.Images.OrderBy(i => i.DisplayOrder))
+            .Include(p => p.Category)
+                .ThenInclude(c => c!.ParentCategory)
             .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted, ct);
     }
 
