@@ -2,6 +2,12 @@
   <Folder Name="/Services/">
     <Project Path="Platform.AppHost/Platform.AppHost.csproj" Id="44d4387c-2358-44e7-870e-d894e57c1ad7" />
   </Folder>
+  <Folder Name="/Services/Catalog/">
+    <Project Path="Services/Catalog/Catalog.Api/Catalog.Api.csproj" Id="21bd1e41-e98f-49a6-a959-6435f65897ae" />
+    <Project Path="Services/Catalog/Catalog.Bll/Catalog.Bll.csproj" Id="ae2b0bb2-daf3-4f6f-a87c-fd891c04cf07" />
+    <Project Path="Services/Catalog/Catalog.Dal/Catalog.Dal.csproj" Id="d76f53a2-de34-4c49-8f78-1dfdb712cb81" />
+    <Project Path="Services/Catalog/Catalog.Domain/Catalog.Domain.csproj" Id="7b4aedbd-430b-4c23-bbdb-8689a14757b0" />
+  </Folder>
   <Folder Name="/Services/Orders/">
     <Project Path="Services/Orders/Orders.Api/Orders.Api.csproj" />
     <Project Path="Services/Orders/Orders.Bll/Orders.Bll.csproj" />

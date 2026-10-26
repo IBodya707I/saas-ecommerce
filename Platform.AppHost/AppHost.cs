@@ -1,13 +1,17 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
 var postgres = builder.AddPostgres("postgres")
-    .WithDataVolume()
-    .AddDatabase("OrdersDb");
+    .WithDataVolume();
 
-//var postgres = builder.AddConnectionString("OrdersDb");
+var ordersDb = postgres.AddDatabase("OrdersDb");
+var catalogDb = postgres.AddDatabase("CatalogDb");
 
 builder.AddProject<Projects.Orders_Api>("orders-api")
-    .WithReference(postgres)
-    .WaitFor(postgres);
+    .WithReference(ordersDb)
+    .WaitFor(ordersDb);
+
+builder.AddProject<Projects.Catalog_Api>("catalog-api")
+    .WithReference(catalogDb)
+    .WaitFor(catalogDb);
 
 builder.Build().Run();
