@@ -19,31 +19,35 @@ public class StorefrontQueries : IStorefrontQueries
     {
         var lowerSlug = slug.ToLowerInvariant();
 
-        return await _showcases.Find(s => s.Slug == lowerSlug)
-            .Project(s => new StorefrontDto(
-                s.Id.ToString(),
-                s.StoreId,
-                s.Slug,
-                s.StoreName,
-                s.Branding != null ? s.Branding.Color : string.Empty,
-                s.Branding != null ? s.Branding.FontFamily : string.Empty,
-                s.Branding != null ? s.Branding.LogoUrl : null,
-                s.WorkSchedule))
-            .FirstOrDefaultAsync(ct);
+        var doc = await _showcases.Find(s => s.Slug == lowerSlug).FirstOrDefaultAsync(ct);
+        if (doc is null)
+            return null;
+
+        return new StorefrontDto(
+            doc.Id.ToString(),
+            doc.StoreId,
+            doc.Slug,
+            doc.StoreName,
+            doc.Branding != null ? doc.Branding.Color : string.Empty,
+            doc.Branding != null ? doc.Branding.FontFamily : string.Empty,
+            doc.Branding != null ? doc.Branding.LogoUrl : null,
+            doc.WorkSchedule);
     }
 
     public async Task<StorefrontDto?> GetByStoreIdAsync(string storeId, CancellationToken ct = default)
     {
-        return await _showcases.Find(s => s.StoreId == storeId)
-            .Project(s => new StorefrontDto(
-                s.Id.ToString(),
-                s.StoreId,
-                s.Slug,
-                s.StoreName,
-                s.Branding != null ? s.Branding.Color : string.Empty,
-                s.Branding != null ? s.Branding.FontFamily : string.Empty,
-                s.Branding != null ? s.Branding.LogoUrl : null,
-                s.WorkSchedule))
-            .FirstOrDefaultAsync(ct);
+        var doc = await _showcases.Find(s => s.StoreId == storeId).FirstOrDefaultAsync(ct);
+        if (doc is null)
+            return null;
+
+        return new StorefrontDto(
+            doc.Id.ToString(),
+            doc.StoreId,
+            doc.Slug,
+            doc.StoreName,
+            doc.Branding != null ? doc.Branding.Color : string.Empty,
+            doc.Branding != null ? doc.Branding.FontFamily : string.Empty,
+            doc.Branding != null ? doc.Branding.LogoUrl : null,
+            doc.WorkSchedule);
     }
 }

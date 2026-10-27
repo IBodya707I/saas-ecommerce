@@ -1,5 +1,6 @@
 namespace Reviews.Infrastructure.Queries;
 
+using AutoMapper;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using Reviews.Application.Common.Interfaces;
@@ -10,10 +11,12 @@ using Reviews.Infrastructure.Persistence;
 public class ReviewQueries : IReviewQueries
 {
     private readonly IMongoCollection<Review> _reviews;
+    private readonly IMapper _mapper;
 
-    public ReviewQueries(MongoDbContext context)
+    public ReviewQueries(MongoDbContext context, IMapper mapper)
     {
         _reviews = context.Reviews;
+        _mapper = mapper;
     }
 
     public async Task<ReviewDto?> GetByIdAsync(string id, CancellationToken ct = default)
@@ -21,18 +24,8 @@ public class ReviewQueries : IReviewQueries
         if (!ObjectId.TryParse(id, out var objectId))
             return null;
 
-        return await _reviews.Find(r => r.Id == objectId)
-            .Project(r => new ReviewDto(
-                r.Id.ToString(),
-                r.ProductId,
-                r.ProductName,
-                r.Author != null ? r.Author.DisplayName : string.Empty,
-                r.Rating,
-                r.Text,
-                r.Comments != null ? r.Comments.Count : 0,
-                r.Version,
-                r.CreatedAt))
-            .FirstOrDefaultAsync(ct);
+        var review = await _reviews.Find(r => r.Id == objectId).FirstOrDefaultAsync(ct);
+        return review == null ? null : _mapper.Map<ReviewDto>(review);
     }
 
     public async Task<PagedResult<ReviewDto>> GetListAsync(long? productId, int page, int pageSize, CancellationToken ct = default)
@@ -43,22 +36,14 @@ public class ReviewQueries : IReviewQueries
 
         var totalCount = await _reviews.CountDocumentsAsync(filter, cancellationToken: ct);
 
-        var items = await _reviews.Find(filter)
+        var reviews = await _reviews.Find(filter)
             .SortByDescending(r => r.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Limit(pageSize)
-            .Project(r => new ReviewDto(
-                r.Id.ToString(),
-                r.ProductId,
-                r.ProductName,
-                r.Author != null ? r.Author.DisplayName : string.Empty,
-                r.Rating,
-                r.Text,
-                r.Comments != null ? r.Comments.Count : 0,
-                r.Version,
-                r.CreatedAt))
             .ToListAsync(ct);
 
-        return new PagedResult<ReviewDto>(items, totalCount, page, pageSize);
+        var dtos = _mapper.Map<List<ReviewDto>>(reviews);
+
+        return new PagedResult<ReviewDto>(dtos, totalCount, page, pageSize);
     }
 }

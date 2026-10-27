@@ -1,6 +1,49 @@
 @Reviews.WebApi_HostAddress = http://localhost:5282
 
-GET {{Reviews.WebApi_HostAddress}}/weatherforecast/
+### 1. Отримати список відгуків з пагінацією
+GET {{Reviews.WebApi_HostAddress}}/api/reviews?page=1&pageSize=10
 Accept: application/json
 
-###
+### 2. Отримати відгуки конкретного товару
+GET {{Reviews.WebApi_HostAddress}}/api/reviews?productId=42&page=1&pageSize=10
+Accept: application/json
+
+### 3. Створити новий відгук на товар
+POST {{Reviews.WebApi_HostAddress}}/api/reviews
+Content-Type: application/json
+
+{
+  "productId": 42,
+  "productName": "Ноутбук X15 Pro Max",
+  "authorId": "u-99",
+  "authorName": "Віталій Кличко",
+  "rating": 5,
+  "text": "Потужний ноутбук для важких завдань, батарея тримає весь робочий день."
+}
+
+### 4. Отримати створений відгук за ID (замініть ID на реальний ObjectId зі створення)
+GET {{Reviews.WebApi_HostAddress}}/api/reviews/66f0c2000000000000000001
+Accept: application/json
+
+### 5. Оновити відгук (з оптимістичним блокуванням)
+PUT {{Reviews.WebApi_HostAddress}}/api/reviews/66f0c2000000000000000001
+Content-Type: application/json
+
+{
+  "rating": 5,
+  "text": "Оновлений відгук: після місяця використання ноутбук працює ідеально!"
+}
+
+### 6. Отримати вітрину магазину за slug
+GET {{Reviews.WebApi_HostAddress}}/api/storefronts/magia-parfumiv
+Accept: application/json
+
+### 7. Оновити брендинг вітрини магазину
+PUT {{Reviews.WebApi_HostAddress}}/api/storefronts/11111111-1111-1111-1111-111111111111/branding
+Content-Type: application/json
+
+{
+  "color": "#990033",
+  "fontFamily": "Playfair Display, serif",
+  "logoUrl": "https://cdn.example.com/stores/magia-new-logo.png"
+}

@@ -63,7 +63,7 @@ public class GlobalExceptionHandler : IExceptionHandler
                 detail = "A database write error occurred.";
                 break;
 
-            case MongoConnectionException:
+            case MongoConnectionException or TimeoutException:
                 statusCode = StatusCodes.Status503ServiceUnavailable;
                 title = "Service Unavailable";
                 detail = "Unable to connect to the database service.";

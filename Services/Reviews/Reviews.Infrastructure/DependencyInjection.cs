@@ -15,7 +15,20 @@ public static class DependencyInjection
     {
         MongoMappings.Register();
 
-        services.Configure<MongoDbOptions>(configuration.GetSection(MongoDbOptions.SectionName));
+        services.Configure<MongoDbOptions>(options =>
+        {
+            configuration.GetSection(MongoDbOptions.SectionName).Bind(options);
+
+            // Підтримка Aspire Service Discovery & ConnectionString
+            var connectionString = configuration.GetConnectionString("showcase-db")
+                ?? configuration.GetConnectionString("showcase_db");
+
+            if (!string.IsNullOrWhiteSpace(connectionString))
+            {
+                options.ConnectionString = connectionString;
+            }
+        });
+
         services.AddSingleton<MongoDbContext>();
 
         services.AddScoped<IReviewRepository, ReviewRepository>();
