@@ -19,6 +19,7 @@ public static class Extensions
 {
     public static TBuilder AddServiceDefaults<TBuilder>(this TBuilder builder) where TBuilder : IHostApplicationBuilder
     {
+        // 1. Serilog - структуроване логування у JSON з експортом у OpenTelemetry для Aspire Dashboard
         builder.Services.AddSerilog((services, cfg) => cfg
             .MinimumLevel.Is(builder.Environment.IsDevelopment() ? LogEventLevel.Debug : LogEventLevel.Information)
             .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
@@ -69,6 +70,8 @@ public static class Extensions
             {
                 tracing.AddSource(builder.Environment.ApplicationName)
                     .AddSource("MongoDB.Driver.Core.Extensions.DiagnosticSources")
+                    .AddSource("Npgsql")
+                    .AddSource("Microsoft.EntityFrameworkCore")
                     .AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
                     .AddSqlClientInstrumentation();
