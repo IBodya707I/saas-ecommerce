@@ -14,4 +14,10 @@
     <Project Path="Services/Orders/Orders.Dal/Orders.Dal.csproj" />
     <Project Path="Services/Orders/Orders.Domain/Orders.Domain.csproj" />
   </Folder>
+  <Folder Name="/Services/Reviews/">
+    <Project Path="Services/Reviews/Reviews.Application/Reviews.Application.csproj" />
+    <Project Path="Services/Reviews/Reviews.Domain/Reviews.Domain.csproj" />
+    <Project Path="Services/Reviews/Reviews.Infrastructure/Reviews.Infrastructure.csproj" />
+    <Project Path="Services/Reviews/Reviews.WebApi/Reviews.WebApi.csproj" />
+  </Folder>
 </Solution>

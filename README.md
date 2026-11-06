@@ -210,3 +210,102 @@ curl -X PUT "http://localhost:5096/api/orders/019273c8-0004-7000-8000-0000000000
   "instance": "PUT /api/orders/019273c8-0004-7000-8000-000000000004/status"
 }
 ```
+
+
+---
+
+## 5. Лабораторна 03: Catalog Service (3-Layer Architecture, EF Core, Multi-Tenancy)
+
+### 5.1. Структура проєкту
+* **`Catalog.Domain`**: Сутності `Product`, `Category`, `Store`, `User`, `StoreEmployee`, перерахування `ProductStatus`, `EmployeeRole`. Чистий домен без зовнішніх залежностей.
+* **`Catalog.Dal`**: `CatalogDbContext`, конфігурації сутностей (`IEntityTypeConfiguration<T>`), глобальні Query Filters для мультитенантності (`TenantId` / `StoreId`), міграції EF Core, `CatalogDataSeeder`.
+* **`Catalog.Bll`**: Сервіси бізнес-логіки (`IProductService`, `ProductService`), DTO, мапінг.
+* **`Catalog.Api`**: REST API контролери (`ProductsController`, `StoresController`), Swagger/OpenAPI, Middleware обробки винятків (`GlobalExceptionHandler`).
+
+### 5.2. Інструкція запуску Catalog Service
+```bash
+dotnet run --project Services/Catalog/Catalog.Api/Catalog.Api.csproj
+```
+* **Swagger UI:** `http://localhost:5167/swagger`
+
+---
+
+## 6. Лабораторна 04: Reviews Service (Clean Architecture, CQRS, MediatR, MongoDB)
+
+### 6.1. Архітектурні шари та напрямок залежностей
+```
+[ Reviews.WebApi (Presentation) ]
+       │                   │
+       ▼                   ▼
+[ Reviews.Application ] ◄── [ Reviews.Infrastructure ]
+       │
+       ▼
+[ Reviews.Domain (Enterprise Business Rules) ]
+```
+1. **`Reviews.Domain`** — ядро системи. Сутності (`Review`, `StorefrontShowcase`, `ProductDiscussion`), Value Objects (`Author`, `Rating`, `DeliveryRating`, `Branding`), події та інтерфейси репозиторіїв (`IReviewRepository`, `IStorefrontRepository`). Жодних зовнішніх залежностей (окрім BSON-ідентифікаторів).
+2. **`Reviews.Application`** — сценарії використання (Use Cases) за патерном **CQRS**:
+   * **Commands:** `CreateReview`, `UpdateReview`, `DeleteReview`, `UpdateStorefrontBranding`.
+   * **Queries:** `GetReviewById`, `GetReviewsList`, `GetStorefrontBySlug`.
+   * **MediatR Pipeline Behaviors:**
+     * `LoggingBehavior<TRequest, TResponse>`: логування вхідного/вихідного запиту.
+     * `ValidationBehavior<TRequest, TResponse>`: валідація через FluentValidation перед виконанням хендлера.
+     * `PerformanceBehavior<TRequest, TResponse>`: виявлення запитів, що тривають > 500 мс.
+3. **`Reviews.Infrastructure`** — збереження даних та зовнішні інтеграції:
+   * `MongoDbContext`: доступ до колекцій `reviews` та `storefront_showcases`.
+   * `BsonClassMap` конфігурація: інкапсуляція приватних полів (`_comments`), мапінг Value Objects через `MapCreator`.
+   * `ReviewRepository`: реалізація оптимістичного блокування (`Version` increment + `ReplaceOneAsync(r => r.Id == id && r.Version == expectedVersion)`).
+   * `IndexCreationService`: складений індекс (`ProductId` + `Rating`), текстовий індекс (`Text` + `ProductName`), унікальний індекс (`StorefrontShowcases.Slug`).
+   * `ReviewSeeder`: ідемпотентний сідінг даних із перевіркою існування документів.
+4. **`Reviews.WebApi`** — API контролери (`ReviewsController`, `StorefrontsController`) через тонку шину `ISender`, обробка глобальних винятків через `IExceptionHandler` (`GlobalExceptionHandler`), підтримка RFC 7807 ProblemDetails (400, 404, 409, 503).
+
+### 6.2. Оркестрація .NET Aspire
+Запуск через Aspire AppHost автоматично піднімає MongoDB контейнер та конфігурує підключення:
+```bash
+dotnet run --project Platform.AppHost/Platform.AppHost.csproj
+```
+Або запуск окремого Reviews.WebApi (вимагає локальний MongoDB на localhost:27017 або за рядком підключення в appsettings.json):
+```bash
+dotnet run --project Services/Reviews/Reviews.WebApi/Reviews.WebApi.csproj
+```
+* **Swagger UI:** `http://localhost:5282/swagger`
+
+### 6.3. Приклади curl-запитів до Reviews API
+
+#### 1. Отримати список відгуків з пагінацією
+```bash
+curl -X GET "http://localhost:5282/api/reviews?page=1&pageSize=10" \
+  -H "Accept: application/json"
+```
+
+#### 2. Створити новий відгук (POST з перевіркою через FluentValidation)
+```bash
+curl -X POST "http://localhost:5282/api/reviews" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "productId": 42,
+    "productName": "Ноутбук X15 Pro",
+    "authorId": "u-101",
+    "authorName": "Олександр",
+    "rating": 5,
+    "text": "Відмінний пристрій, дуже швидкий та тихий у роботі!"
+  }'
+```
+*Очікувана відповідь:* `201 Created` з заголовком `Location: /api/reviews/{id}` та ETag `W/"1"`.
+
+#### 3. Отримати вітрину магазину за slug (GET)
+```bash
+curl -X GET "http://localhost:5282/api/storefronts/magia-parfumiv" \
+  -H "Accept: application/json"
+```
+
+#### 4. Оновити брендинг вітрини (PUT)
+```bash
+curl -X PUT "http://localhost:5282/api/storefronts/11111111-1111-1111-1111-111111111111/branding" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "color": "#990033",
+    "fontFamily": "Playfair Display, serif",
+    "logoUrl": "https://cdn.example.com/stores/logo.png"
+  }'
+```
+*Очікувана відповідь:* `204 No Content`.
