@@ -1,7 +1,9 @@
 namespace Reviews.WebApi.Controllers;
 
+using System.Diagnostics;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Reviews.Application.Commands.CreateReview;
 using Reviews.Application.Commands.DeleteReview;
 using Reviews.Application.Commands.UpdateReview;
@@ -13,11 +15,14 @@ using Reviews.Application.Queries.GetReviewsList;
 [Route("api/[controller]")]
 public class ReviewsController : ControllerBase
 {
+    private static readonly ActivitySource ActivitySource = new("Reviews.WebApi");
     private readonly ISender _sender;
+    private readonly ILogger<ReviewsController> _logger;
 
-    public ReviewsController(ISender sender)
+    public ReviewsController(ISender sender, ILogger<ReviewsController> logger)
     {
         _sender = sender;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -50,7 +55,14 @@ public class ReviewsController : ControllerBase
         [FromBody] CreateReviewCommand command,
         CancellationToken ct = default)
     {
+        using var activity = ActivitySource.StartActivity("CreateReview");
         var id = await _sender.Send(command, ct);
+        activity?.SetTag("review.id", id);
+        activity?.SetTag("review.productId", command.ProductId);
+
+        _logger.LogInformation("Review {ReviewId} created for product {ProductId} by user {UserId} with rating {Rating}",
+            id, command.ProductId, command.AuthorId, command.Rating);
+
         return CreatedAtAction(nameof(GetById), new { id }, id);
     }
 
@@ -64,7 +76,13 @@ public class ReviewsController : ControllerBase
         [FromBody] UpdateReviewRequest request,
         CancellationToken ct = default)
     {
+        using var activity = ActivitySource.StartActivity("UpdateReview");
+        activity?.SetTag("review.id", id);
+
         await _sender.Send(new UpdateReviewCommand(id, request.Rating, request.Text), ct);
+
+        _logger.LogInformation("Review {ReviewId} updated with rating {Rating}", id, request.Rating);
+
         return NoContent();
     }
 
@@ -73,7 +91,13 @@ public class ReviewsController : ControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(string id, CancellationToken ct = default)
     {
+        using var activity = ActivitySource.StartActivity("DeleteReview");
+        activity?.SetTag("review.id", id);
+
         await _sender.Send(new DeleteReviewCommand(id), ct);
+
+        _logger.LogInformation("Review {ReviewId} deleted", id);
+
         return NoContent();
     }
 }

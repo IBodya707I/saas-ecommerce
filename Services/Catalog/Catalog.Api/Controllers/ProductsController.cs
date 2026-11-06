@@ -1,7 +1,13 @@
+using System;
+using System.Diagnostics;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Catalog.Bll.Dtos;
 using Catalog.Bll.Interfaces;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using ValidationException = Catalog.Domain.Exceptions.ValidationException;
 
 namespace Catalog.Api.Controllers;
@@ -10,18 +16,22 @@ namespace Catalog.Api.Controllers;
 [Route("api/[controller]")]
 public class ProductsController : ControllerBase
 {
+    private static readonly ActivitySource ActivitySource = new("Catalog.Api");
     private readonly IProductService _productService;
     private readonly IValidator<CreateProductDto> _createValidator;
     private readonly IValidator<UpdateProductDto> _updateValidator;
+    private readonly ILogger<ProductsController> _logger;
 
     public ProductsController(
         IProductService productService,
         IValidator<CreateProductDto> createValidator,
-        IValidator<UpdateProductDto> updateValidator)
+        IValidator<UpdateProductDto> updateValidator,
+        ILogger<ProductsController> logger)
     {
         _productService = productService;
         _createValidator = createValidator;
         _updateValidator = updateValidator;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -62,7 +72,13 @@ public class ProductsController : ControllerBase
             throw new ValidationException("Product validation failed", errors);
         }
 
+        using var activity = ActivitySource.StartActivity("CreateProduct");
         var created = await _productService.CreateAsync(dto, ct);
+        activity?.SetTag("product.id", created.Id);
+
+        _logger.LogInformation("Product {ProductId} created with name '{ProductName}' and price {Price}",
+            created.Id, created.Name, created.Price);
+
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
 
@@ -78,21 +94,39 @@ public class ProductsController : ControllerBase
             throw new ValidationException("Product update validation failed", errors);
         }
 
+        using var activity = ActivitySource.StartActivity("UpdateProduct");
+        activity?.SetTag("product.id", id);
+
         var updated = await _productService.UpdateAsync(id, dto, ct);
+
+        _logger.LogInformation("Product {ProductId} updated successfully", id);
+
         return Ok(updated);
     }
 
     [HttpPatch("{id:guid}/price")]
     public async Task<ActionResult<ProductDto>> UpdatePrice(Guid id, [FromBody] UpdateProductPriceDto dto, CancellationToken ct)
     {
+        using var activity = ActivitySource.StartActivity("UpdateProductPrice");
+        activity?.SetTag("product.id", id);
+
         var updated = await _productService.UpdatePriceAsync(id, dto.NewPrice, ct);
+
+        _logger.LogInformation("Product {ProductId} price updated to {Price}", id, dto.NewPrice);
+
         return Ok(updated);
     }
 
     [HttpPatch("{id:guid}/stock")]
     public async Task<ActionResult<ProductDto>> AdjustStock(Guid id, [FromBody] AdjustStockDto dto, CancellationToken ct)
     {
+        using var activity = ActivitySource.StartActivity("AdjustProductStock");
+        activity?.SetTag("product.id", id);
+
         var updated = await _productService.AdjustStockAsync(id, dto.Quantity, ct);
+
+        _logger.LogInformation("Product {ProductId} stock adjusted by {Quantity}", id, dto.Quantity);
+
         return Ok(updated);
     }
 

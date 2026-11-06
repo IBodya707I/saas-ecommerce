@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Orders.Bll.Dtos.Orders;
 using Orders.Bll.Interfaces;
 
@@ -16,11 +18,14 @@ namespace Orders.Api.Controllers;
 [Route("api/orders")]
 public class OrdersController : ControllerBase
 {
+    private static readonly ActivitySource ActivitySource = new("Orders.Api");
     private readonly IOrderService _orderService;
+    private readonly ILogger<OrdersController> _logger;
 
-    public OrdersController(IOrderService orderService)
+    public OrdersController(IOrderService orderService, ILogger<OrdersController> logger)
     {
         _orderService = orderService ?? throw new ArgumentNullException(nameof(orderService));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     /// <summary>
@@ -79,7 +84,15 @@ public class OrdersController : ControllerBase
         [FromBody] CreateOrderDto dto,
         CancellationToken ct)
     {
+        using var activity = ActivitySource.StartActivity("CreateOrder");
         var created = await _orderService.CreateAsync(dto, ct);
+
+        activity?.SetTag("order.id", created.Id);
+        activity?.SetTag("order.storeId", created.StoreId);
+
+        _logger.LogInformation("Order {OrderId} created for store {StoreId} with {ItemCount} items, total {TotalAmount}",
+            created.Id, created.StoreId, created.Items?.Count ?? 0, created.TotalAmount);
+
         return CreatedAtAction(
             nameof(GetById),
             new { id = created.Id, storeId = created.StoreId },
@@ -100,7 +113,13 @@ public class OrdersController : ControllerBase
         [FromQuery] Guid storeId,
         CancellationToken ct)
     {
+        using var activity = ActivitySource.StartActivity("PayOrder");
+        activity?.SetTag("order.id", id);
+
         await _orderService.PayOrderAsync(id, storeId, ct);
+
+        _logger.LogInformation("Order {OrderId} confirmed, payment processed, status {Status}", id, "Paid");
+
         return Ok(new { message = $"Order '{id}' payment processed successfully." });
     }
 
@@ -117,7 +136,14 @@ public class OrdersController : ControllerBase
         [FromBody] ChangeOrderStatusDto dto,
         CancellationToken ct)
     {
+        using var activity = ActivitySource.StartActivity("ChangeOrderStatus");
+        activity?.SetTag("order.id", id);
+        activity?.SetTag("order.status", dto.NewStatus);
+
         await _orderService.ChangeStatusAsync(id, dto, ct);
+
+        _logger.LogInformation("Order {OrderId} status transitioned to {Status}", id, dto.NewStatus);
+
         return Ok(new { message = $"Order '{id}' status transitioned to '{dto.NewStatus}'." });
     }
 }

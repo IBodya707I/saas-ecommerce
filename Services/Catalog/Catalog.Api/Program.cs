@@ -8,15 +8,15 @@ using Catalog.Dal.Repositories;
 using Catalog.Dal.Seeding;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
-using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Host.UseSerilog((ctx, cfg) => cfg
-    .ReadFrom.Configuration(ctx.Configuration)
-    .Enrich.FromLogContext());
+// 1. ServiceDefaults: Serilog, OpenTelemetry, HealthChecks, Service Discovery, Resilience
+builder.AddServiceDefaults();
 
+// 2. Database Connection String with Aspire and environment variable override support
 var connectionString = builder.Configuration.GetConnectionString("CatalogDb")
+    ?? builder.Configuration.GetConnectionString("catalog-db")
     ?? builder.Configuration.GetConnectionString("DefaultConnection")
     ?? "Server=localhost;Port=5432;Database=catalog_db;Username=postgres;Password=postgres;";
 
@@ -51,7 +51,9 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-app.UseSerilogRequestLogging();
+// ServiceDefaults Endpoints: HealthChecks (/health, /alive) та CorrelationId Middleware
+app.MapDefaultEndpoints();
+
 app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())

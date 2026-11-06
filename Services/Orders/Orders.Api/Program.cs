@@ -10,18 +10,16 @@ using Orders.Bll.Mapping;
 using Orders.Bll.Services;
 using Orders.Dal.Interfaces;
 using Orders.Dal.Repositories;
-using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Serilog structured logging
-builder.Host.UseSerilog((ctx, cfg) => cfg
-    .ReadFrom.Configuration(ctx.Configuration)
-    .Enrich.FromLogContext()
-    .WriteTo.Console());
+// 1. ServiceDefaults: Serilog, OpenTelemetry, HealthChecks, Service Discovery, Resilience
+builder.AddServiceDefaults();
 
-// 2. Database Connection String with environment variable override support
+// 2. Database Connection String with Aspire and environment variable override support
 var connectionString = builder.Configuration.GetConnectionString("OrdersDb")
+    ?? builder.Configuration.GetConnectionString("orders-db")
+    ?? builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'OrdersDb' is missing");
 
 // 3. Dependency Injection: Scoped Unit of Work (one connection & transaction per HTTP request)
@@ -64,6 +62,9 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+// ServiceDefaults Endpoints: HealthChecks (/health, /alive) та CorrelationId Middleware
+app.MapDefaultEndpoints();
 
 // Pipeline middleware configuration
 app.UseExceptionHandler();
