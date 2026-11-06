@@ -1,0 +1,6 @@
+@Platform.Aggregator_HostAddress = http://localhost:5076
+
+GET {{Platform.Aggregator_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
