@@ -11,16 +11,22 @@ var mongo = builder.AddMongoDB("mongo")
 
 var showcaseDb = mongo.AddDatabase("showcase-db");
 
-builder.AddProject<Projects.Orders_Api>("orders-api")
+var orders = builder.AddProject<Projects.Orders_Api>("orders-api")
     .WithReference(ordersDb)
     .WaitFor(ordersDb);
 
-builder.AddProject<Projects.Catalog_Api>("catalog-api")
+var catalog = builder.AddProject<Projects.Catalog_Api>("catalog-api")
     .WithReference(catalogDb)
     .WaitFor(catalogDb);
 
-builder.AddProject<Projects.Reviews_WebApi>("reviews-api")
+var reviews = builder.AddProject<Projects.Reviews_WebApi>("reviews-api")
     .WithReference(showcaseDb)
     .WaitFor(showcaseDb);
+
+var gateway = builder.AddProject<Projects.Platform_ApiGateway>("gateway")
+    .WithHttpEndpoint(port: 5000, name: "public")
+    .WithReference(orders)
+    .WithReference(catalog)
+    .WithReference(reviews);
 
 builder.Build().Run();
