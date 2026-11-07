@@ -69,6 +69,10 @@ public static class Extensions
             .WithTracing(tracing =>
             {
                 tracing.AddSource(builder.Environment.ApplicationName)
+                    .AddSource("Platform.Aggregator")
+                    .AddSource("Orders.Api")
+                    .AddSource("Catalog.Api")
+                    .AddSource("Reviews.WebApi")
                     .AddSource("MongoDB.Driver.Core.Extensions.DiagnosticSources")
                     .AddSource("Npgsql")
                     .AddSource("Microsoft.EntityFrameworkCore")

@@ -1,9 +1,11 @@
 namespace Reviews.Domain.Common;
 
 using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Attributes;
 
 public abstract class BaseEntity
 {
+    [BsonId]
     public ObjectId Id { get; protected set; } = ObjectId.GenerateNewId();
     public DateTime CreatedAt { get; protected set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; protected set; }

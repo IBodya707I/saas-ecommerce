@@ -26,18 +26,6 @@ public static class MongoMappings
             };
             ConventionRegistry.Register("ReviewsConventions", conventionPack, _ => true);
 
-            if (!BsonClassMap.IsClassMapRegistered(typeof(BaseEntity)))
-            {
-                BsonClassMap.RegisterClassMap<BaseEntity>(cm =>
-                {
-                    cm.AutoMap();
-                    cm.MapIdMember(c => c.Id);
-                    cm.MapMember(c => c.CreatedAt);
-                    cm.MapMember(c => c.UpdatedAt);
-                    cm.MapMember(c => c.Version);
-                });
-            }
-
             if (!BsonClassMap.IsClassMapRegistered(typeof(Author)))
             {
                 BsonClassMap.RegisterClassMap<Author>(cm =>
@@ -94,7 +82,11 @@ public static class MongoMappings
             {
                 BsonClassMap.RegisterClassMap<Review>(cm =>
                 {
-                    cm.AutoMap();
+                    cm.MapMember(r => r.ProductId);
+                    cm.MapMember(r => r.ProductName);
+                    cm.MapMember(r => r.Author);
+                    cm.MapMember(r => r.Rating);
+                    cm.MapMember(r => r.Text);
                     cm.MapField("_comments").SetElementName("comments");
                 });
             }
@@ -103,7 +95,11 @@ public static class MongoMappings
             {
                 BsonClassMap.RegisterClassMap<StorefrontShowcase>(cm =>
                 {
-                    cm.AutoMap();
+                    cm.MapMember(s => s.StoreId);
+                    cm.MapMember(s => s.Slug);
+                    cm.MapMember(s => s.StoreName);
+                    cm.MapMember(s => s.Branding);
+                    cm.MapMember(s => s.WorkSchedule);
                 });
             }
 
@@ -111,7 +107,10 @@ public static class MongoMappings
             {
                 BsonClassMap.RegisterClassMap<ProductDiscussion>(cm =>
                 {
-                    cm.AutoMap();
+                    cm.MapMember(d => d.ProductId);
+                    cm.MapMember(d => d.Title);
+                    cm.MapMember(d => d.Status);
+                    cm.MapMember(d => d.MessageCount);
                 });
             }
 

@@ -309,3 +309,89 @@ curl -X PUT "http://localhost:5282/api/storefronts/11111111-1111-1111-1111-11111
   }'
 ```
 *Очікувана відповідь:* `204 No Content`.
+
+
+---
+
+## 7. Мікросервісна платформа на .NET Aspire (Лабораторна робота 5)
+
+### 7.1. Архітектура платформи
+Платформа побудована на базі оркестрації **.NET Aspire** і об'єднує 3 мікросервіси предметної області (`Orders.Api`, `Catalog.Api`, `Reviews.WebApi`) та 3 нові проєкти інфраструктурної платформи:
+
+1. **`Platform.ServiceDefaults`** — спільна конфігурація:
+   * **OpenTelemetry:** збір розподілених трейсів (HTTP, ASP.NET Core, PostgreSQL Npgsql, EF Core, MongoDB DiagnosticSource) та метрик.
+   * **Serilog:** структуроване логування у компактному JSON-форматі (`CompactJsonFormatter`) з полями `Timestamp`, `Level`, `Message`, `CorrelationId`, `SourceContext`.
+   * **CorrelationId:** `CorrelationIdMiddleware` для генерації/читання `X-Correlation-Id` та `CorrelationIdHandler` (`DelegatingHandler`) для прокидання заголовка між сервісами.
+   * **HealthChecks:** кінцеві точки перевірки стану `/health` та `/alive`.
+   * **Service Discovery & Resilience:** автоматичне визначення адрес сервісів за іменами та політики стійкості (Polly retry/timeout).
+
+2. **`Platform.ApiGateway`** — єдина точка входу на порту `5000`:
+   * Зворотний проксі на базі **YARP (Yet Another Reverse Proxy)**.
+   * Маршрутизація до мікросервісів через Aspire Service Discovery (`http://orders-api`, `http://catalog-api`, `http://reviews-api`, `http://aggregator`).
+   * Логування рішень маршрутизації (`RouteId`, `ClusterId`, `Destination`) у власному middleware.
+
+3. **`Platform.Aggregator`** — Gateway Aggregation Pattern:
+   * Типізовані клієнти з DI: `OrdersClient`, `CatalogClient`, `ReviewsClient`.
+   * Паралельні запити через **`Task.WhenAll`** для мінімізації часу очікування.
+   * **Graceful Degradation (стійкість до часткових збоїв):** при збої або недоступності сателітного сервісу агрегатор повертає доступні дані замовлення та додає деталі збою у масив `warnings`, уникаючи помилки 500.
+   * Композитний DTO `FullOrderDto` з `camelCase` серіалізацією та ігноруванням `null` полів (`JsonIgnoreCondition.WhenWritingNull`).
+
+4. **`Platform.AppHost`** — оркестратор .NET Aspire:
+   * Автоматичне підняття контейнерів PostgreSQL та MongoDB із персистентними томами (`.WithDataVolume()`).
+   * Ланцюжки очікування готовності (`WaitFor`) для запобігання запуску API до підняття баз даних та залежних сервісів.
+
+---
+
+### 7.2. Таблиця маршрутів YARP API Gateway (порт 5000)
+
+| Маршрут (Path) | Кластер призначення | Service Discovery URL | Балансування |
+| :--- | :--- | :--- | :--- |
+| `/api/aggregator/{**catch-all}` (Order 1) | `aggregator` | `http://aggregator` | - |
+| `/api/orders/{**catch-all}` | `orders` | `http://orders-api` | - |
+| `/api/products/{**catch-all}` | `catalog` | `http://catalog-api` | `RoundRobin` |
+| `/api/categories/{**catch-all}` | `catalog` | `http://catalog-api` | `RoundRobin` |
+| `/api/stores/{**catch-all}` | `catalog` | `http://catalog-api` | `RoundRobin` |
+| `/api/reviews/{**catch-all}` | `reviews` | `http://reviews-api` | - |
+| `/api/storefronts/{**catch-all}` | `reviews` | `http://reviews-api` | - |
+
+---
+
+### 7.3. Приклади curl-запитів через API Gateway (порт 5000)
+
+#### 1. Агреговане повне замовлення (Gateway Aggregator Pattern)
+```bash
+curl -X GET "http://localhost:5000/api/aggregator/orders/019273c8-0001-7000-8000-000000000001/full?storeId=11111111-1111-1111-1111-111111111111" \
+  -H "X-Correlation-Id: test-corr-001" \
+  -H "Accept: application/json"
+```
+
+#### 2. Список товарів каталогу через Gateway
+```bash
+curl -X GET "http://localhost:5000/api/products?storeId=11111111-1111-1111-1111-111111111111" \
+  -H "Accept: application/json"
+```
+
+#### 3. Перегляд замовлення через Gateway
+```bash
+curl -X GET "http://localhost:5000/api/orders/019273c8-0001-7000-8000-000000000001?storeId=11111111-1111-1111-1111-111111111111" \
+  -H "Accept: application/json"
+```
+
+#### 4. Список відгуків через Gateway
+```bash
+curl -X GET "http://localhost:5000/api/reviews?page=1&pageSize=10" \
+  -H "Accept: application/json"
+```
+
+---
+
+### 7.4. Запуск платформи
+
+Запуск усього середовища здійснюється однією командою з кореня репозиторію:
+```bash
+dotnet run --project Platform.AppHost/Platform.AppHost.csproj
+```
+Після запуску відкриється .NET Aspire Dashboard (посилання в консолі, наприклад `http://localhost:17244`), де доступні:
+* **Resources:** моніторинг стану всіх сервісів та баз даних.
+* **Structured logs:** перегляд структурованих JSON логів з фільтрацією за `CorrelationId`.
+* **Traces:** наскрізні розподілені трейси запитів від Gateway до мікросервісів та звернень до PostgreSQL і MongoDB.
