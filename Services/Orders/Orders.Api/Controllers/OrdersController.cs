@@ -33,12 +33,30 @@ public class OrdersController : ControllerBase
     /// </summary>
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(OrderDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<OrderDto>> GetById(
         [FromRoute] Guid id,
-        [FromQuery] Guid storeId,
+        [FromQuery, System.ComponentModel.DataAnnotations.Required] Guid storeId,
         CancellationToken ct)
     {
+        if (storeId == Guid.Empty &&
+            Request.Headers.TryGetValue("X-Store-Id", out var headerVal) &&
+            Guid.TryParse(headerVal, out var headerStoreId))
+        {
+            storeId = headerStoreId;
+        }
+
+        if (storeId == Guid.Empty)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "Validation Error",
+                Detail = "storeId is required either as a query parameter or 'X-Store-Id' header"
+            });
+        }
+
         var order = await _orderService.GetByIdAsync(id, storeId, ct);
         return Ok(order);
     }
