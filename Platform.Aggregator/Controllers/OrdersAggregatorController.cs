@@ -57,13 +57,17 @@ public class OrdersAggregatorController : ControllerBase
         _logger.LogInformation("Aggregating full order details for OrderId={OrderId}, StoreId={StoreId}", id, storeId);
 
         OrderDto? order;
+        var swOrders = Stopwatch.StartNew();
         try
         {
             order = await _ordersClient.GetOrderAsync(id, storeId, ct);
+            swOrders.Stop();
+            _logger.LogInformation("{Service} ok in {Elapsed} ms", "Orders", swOrders.ElapsedMilliseconds);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to retrieve order {OrderId} from Orders service", id);
+            swOrders.Stop();
+            _logger.LogError(ex, "{Service} failed: {Error}", "Orders", ex.Message);
             return StatusCode(StatusCodes.Status502BadGateway, new { message = $"Orders service error: {ex.Message}" });
         }
 
@@ -79,29 +83,37 @@ public class OrdersAggregatorController : ControllerBase
 
         var productTasks = order.Items.Select(async item =>
         {
+            var swCatalog = Stopwatch.StartNew();
             try
             {
                 var product = await _catalogClient.GetProductAsync(item.ProductId, ct);
+                swCatalog.Stop();
+                _logger.LogInformation("{Service} ok in {Elapsed} ms", "Catalog", swCatalog.ElapsedMilliseconds);
                 return (Product: product, Error: (string?)null);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to retrieve product details for {ProductId}", item.ProductId);
+                swCatalog.Stop();
+                _logger.LogError(ex, "{Service} failed: {Error}", "Catalog", ex.Message);
                 return (Product: (ProductDto?)null, Error: $"Catalog service error for product '{item.ProductName}' ({item.ProductId}): {ex.Message}");
             }
         }).ToList();
 
         var reviewTasks = order.Items.Select(async item =>
         {
+            var swReviews = Stopwatch.StartNew();
             try
             {
                 long numericId = Math.Abs(BitConverter.ToInt64(item.ProductId.ToByteArray(), 0));
                 var productReviews = await _reviewsClient.GetReviewsByProductIdAsync(numericId, ct);
+                swReviews.Stop();
+                _logger.LogInformation("{Service} ok in {Elapsed} ms", "Reviews", swReviews.ElapsedMilliseconds);
                 return (Reviews: productReviews, Error: (string?)null);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to retrieve reviews for product {ProductId}", item.ProductId);
+                swReviews.Stop();
+                _logger.LogError(ex, "{Service} failed: {Error}", "Reviews", ex.Message);
                 return (Reviews: (IReadOnlyList<ReviewDto>?)null, Error: $"Reviews service error for product '{item.ProductName}': {ex.Message}");
             }
         }).ToList();
