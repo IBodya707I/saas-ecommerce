@@ -7,6 +7,7 @@ using Serilog.Context;
 public class CorrelationIdMiddleware
 {
     public const string HeaderName = "X-Correlation-Id";
+    private const string AppliedKey = "__CorrelationIdApplied";
     private readonly RequestDelegate _next;
     private readonly ILogger<CorrelationIdMiddleware> _logger;
 
@@ -18,6 +19,13 @@ public class CorrelationIdMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
+        if (context.Items.ContainsKey(AppliedKey))
+        {
+            await _next(context);
+            return;
+        }
+        context.Items[AppliedKey] = true;
+
         if (!context.Request.Headers.TryGetValue(HeaderName, out var value) || string.IsNullOrWhiteSpace(value))
         {
             value = Guid.NewGuid().ToString();

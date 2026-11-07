@@ -64,6 +64,17 @@ public class OrdersAggregatorController : ControllerBase
             swOrders.Stop();
             _logger.LogInformation("{Service} ok in {Elapsed} ms", "Orders", swOrders.ElapsedMilliseconds);
         }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            swOrders.Stop();
+            _logger.LogWarning("Order {OrderId} was not found (404 from Orders service)", id);
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Not Found",
+                Detail = $"Order with ID '{id}' was not found."
+            });
+        }
         catch (Exception ex)
         {
             swOrders.Stop();
@@ -74,7 +85,12 @@ public class OrdersAggregatorController : ControllerBase
         if (order == null)
         {
             _logger.LogWarning("Order {OrderId} was not found", id);
-            return NotFound(new { message = $"Order with ID '{id}' was not found." });
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Not Found",
+                Detail = $"Order with ID '{id}' was not found."
+            });
         }
 
         var warnings = new List<string>();
