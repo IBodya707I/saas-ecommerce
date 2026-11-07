@@ -23,10 +23,20 @@ var reviews = builder.AddProject<Projects.Reviews_WebApi>("reviews-api")
     .WithReference(showcaseDb)
     .WaitFor(showcaseDb);
 
+var aggregator = builder.AddProject<Projects.Platform_Aggregator>("aggregator")
+    .WithReference(orders)
+    .WaitFor(orders)
+    .WithReference(catalog)
+    .WaitFor(catalog)
+    .WithReference(reviews)
+    .WaitFor(reviews);
+
 var gateway = builder.AddProject<Projects.Platform_ApiGateway>("gateway")
     .WithHttpEndpoint(port: 5000, name: "public")
     .WithReference(orders)
     .WithReference(catalog)
-    .WithReference(reviews);
+    .WithReference(reviews)
+    .WithReference(aggregator)
+    .WaitFor(aggregator);
 
 builder.Build().Run();
