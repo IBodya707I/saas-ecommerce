@@ -71,7 +71,16 @@ public class OrdersAggregatorController : ControllerBase
         activity?.SetTag("store.id", storeId);
 
         var cacheKey = $"aggregator:order:{id}:{storeId}:full";
-        var cachedBytes = await _cache.GetAsync(cacheKey, ct);
+        byte[]? cachedBytes = null;
+        try
+        {
+            cachedBytes = await _cache.GetAsync(cacheKey, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Redis cache unavailable for key {CacheKey}, bypassing cache", cacheKey);
+        }
+
         if (cachedBytes is not null)
         {
             _logger.LogInformation("Cache hit for aggregated order {CacheKey}", cacheKey);
@@ -212,12 +221,19 @@ public class OrdersAggregatorController : ControllerBase
 
         if (warnings.Count == 0)
         {
-            var serialized = JsonSerializer.SerializeToUtf8Bytes(fullOrder);
-            await _cache.SetAsync(cacheKey, serialized, new DistributedCacheEntryOptions
+            try
             {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(45)
-            }, ct);
-            _logger.LogInformation("Cached aggregated order in Redis for key {CacheKey}", cacheKey);
+                var serialized = JsonSerializer.SerializeToUtf8Bytes(fullOrder);
+                await _cache.SetAsync(cacheKey, serialized, new DistributedCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(45)
+                }, ct);
+                _logger.LogInformation("Cached aggregated order in Redis for key {CacheKey}", cacheKey);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to write aggregated order to Redis cache for key {CacheKey}", cacheKey);
+            }
         }
 
         return Ok(fullOrder);

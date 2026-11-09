@@ -3,10 +3,16 @@ using System.Text.Json.Serialization;
 using Platform.Aggregator.Clients;
 using Platform.ServiceDefaults;
 
+AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
-builder.AddRedisDistributedCache("redis");
+builder.AddRedisDistributedCache("redis", configureOptions: options =>
+{
+    options.ConnectTimeout = 1000;
+    options.AbortOnConnectFail = false;
+});
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -20,17 +26,17 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddGrpcClient<Orders.Api.Grpc.OrdersService.OrdersServiceClient>(o =>
 {
-    o.Address = new Uri("http://orders-api");
+    o.Address = new Uri("https://orders-api");
 });
 
 builder.Services.AddGrpcClient<Catalog.Api.Grpc.CatalogService.CatalogServiceClient>(o =>
 {
-    o.Address = new Uri("http://catalog-api");
+    o.Address = new Uri("https://catalog-api");
 });
 
 builder.Services.AddGrpcClient<Reviews.WebApi.Grpc.ReviewsService.ReviewsServiceClient>(o =>
 {
-    o.Address = new Uri("http://reviews-api");
+    o.Address = new Uri("https://reviews-api");
 });
 
 builder.Services.AddHttpClient<OrdersClient>(client =>

@@ -28,7 +28,11 @@ builder.Services.AddGrpc(options =>
     options.Interceptors.Add<Platform.ServiceDefaults.Grpc.LoggingInterceptor>();
 });
 
-builder.AddRedisDistributedCache("redis");
+builder.AddRedisDistributedCache("redis", configureOptions: options =>
+{
+    options.ConnectTimeout = 1000;
+    options.AbortOnConnectFail = false;
+});
 
 builder.Services.AddMemoryCache(options =>
 {
