@@ -5,7 +5,7 @@ option csharp_namespace = "Reviews.WebApi.Grpc";
 package reviews;
 
 // Service for querying reviews
-service ReviewsGrpcService {
+service ReviewsService {
     rpc GetReviewsByProductId (GetReviewsByProductIdRequest) returns (ReviewsReply);
     rpc GetReviewById (GetReviewByIdRequest) returns (ReviewReply);
 }

@@ -5,10 +5,9 @@ using Platform.ServiceDefaults;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Aspire Service Defaults (Serilog, OpenTelemetry, HealthChecks, Service Discovery, Resilience)
 builder.AddServiceDefaults();
+builder.AddRedisDistributedCache("redis");
 
-// 2. Configure Controllers with camelCase and ignore nulls (Criterion 14)
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -19,7 +18,21 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// 3. Register Typed HttpClients with Aspire Service Discovery (Criterion 11)
+builder.Services.AddGrpcClient<Orders.Api.Grpc.OrdersService.OrdersServiceClient>(o =>
+{
+    o.Address = new Uri("http://orders-api");
+});
+
+builder.Services.AddGrpcClient<Catalog.Api.Grpc.CatalogService.CatalogServiceClient>(o =>
+{
+    o.Address = new Uri("http://catalog-api");
+});
+
+builder.Services.AddGrpcClient<Reviews.WebApi.Grpc.ReviewsService.ReviewsServiceClient>(o =>
+{
+    o.Address = new Uri("http://reviews-api");
+});
+
 builder.Services.AddHttpClient<OrdersClient>(client =>
 {
     client.BaseAddress = new Uri("http://orders-api");

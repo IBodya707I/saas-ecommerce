@@ -5,7 +5,7 @@ option csharp_namespace = "Orders.Api.Grpc";
 package orders;
 
 // Service for querying orders
-service OrdersGrpcService {
+service OrdersService {
     rpc GetOrder (GetOrderRequest) returns (OrderReply);
 }
 

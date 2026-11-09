@@ -5,7 +5,7 @@ option csharp_namespace = "Catalog.Api.Grpc";
 package catalog;
 
 // Service for querying catalog products
-service CatalogGrpcService {
+service CatalogService {
     rpc GetProduct (GetProductRequest) returns (ProductReply);
     rpc GetProductsByIds (GetProductsByIdsRequest) returns (ProductsReply);
 }

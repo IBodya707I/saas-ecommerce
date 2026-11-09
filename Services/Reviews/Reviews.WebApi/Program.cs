@@ -9,6 +9,20 @@ var builder = WebApplication.CreateBuilder(args);
 // 1. ServiceDefaults: Serilog, OpenTelemetry, HealthChecks, Service Discovery, Resilience
 builder.AddServiceDefaults();
 
+// Configure Kestrel to support HTTP/1.1 (REST) and HTTP/2 (gRPC)
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.ConfigureEndpointDefaults(listenOptions =>
+    {
+        listenOptions.Protocols = Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1AndHttp2;
+    });
+});
+
+builder.Services.AddGrpc(options =>
+{
+    options.Interceptors.Add<Platform.ServiceDefaults.Grpc.LoggingInterceptor>();
+});
+
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
@@ -53,5 +67,6 @@ if (app.Environment.IsDevelopment())
 
 app.UseAuthorization();
 app.MapControllers();
+app.MapGrpcService<Reviews.WebApi.Grpc.ReviewsGrpcService>();
 
 app.Run();
