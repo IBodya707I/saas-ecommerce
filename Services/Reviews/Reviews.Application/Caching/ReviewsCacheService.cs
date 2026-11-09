@@ -106,9 +106,15 @@ public class ReviewsCacheService : IReviewsCacheService
         var options = new MemoryCacheEntryOptions
         {
             Size = 1,
+            Priority = CacheItemPriority.Normal,
             SlidingExpiration = TimeSpan.FromMinutes(5),
             AbsoluteExpirationRelativeToNow = expiration ?? TimeSpan.FromMinutes(1)
         };
+        options.RegisterPostEvictionCallback((evictedKey, evictedValue, reason, state) =>
+        {
+            _logger.LogInformation("L1 cache entry {Key} evicted. Reason: {Reason}", evictedKey, reason);
+        });
+
         _memoryCache.Set(key, value, options);
     }
 }

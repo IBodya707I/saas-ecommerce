@@ -27,6 +27,7 @@ builder.AddRedisDistributedCache("redis");
 builder.Services.AddMemoryCache(options =>
 {
     options.SizeLimit = 10_000;
+    options.CompactionPercentage = 0.05;
 });
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
