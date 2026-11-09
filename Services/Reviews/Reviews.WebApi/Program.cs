@@ -24,7 +24,10 @@ builder.Services.AddGrpc(options =>
 });
 
 builder.AddRedisDistributedCache("redis");
-builder.Services.AddMemoryCache();
+builder.Services.AddMemoryCache(options =>
+{
+    options.SizeLimit = 10_000;
+});
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();

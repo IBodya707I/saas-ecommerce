@@ -21,6 +21,7 @@ public static class DependencyInjection
         });
 
         services.AddValidatorsFromAssembly(assembly);
+        services.AddScoped<Reviews.Application.Caching.IReviewsCacheService, Reviews.Application.Caching.ReviewsCacheService>();
 
         return services;
     }

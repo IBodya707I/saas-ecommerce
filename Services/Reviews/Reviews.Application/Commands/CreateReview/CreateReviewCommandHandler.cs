@@ -1,6 +1,7 @@
 namespace Reviews.Application.Commands.CreateReview;
 
 using MediatR;
+using Reviews.Application.Caching;
 using Reviews.Domain.Entities;
 using Reviews.Domain.Interfaces;
 using Reviews.Domain.ValueObjects;
@@ -8,10 +9,12 @@ using Reviews.Domain.ValueObjects;
 public class CreateReviewCommandHandler : IRequestHandler<CreateReviewCommand, string>
 {
     private readonly IReviewRepository _repository;
+    private readonly IReviewsCacheService _cache;
 
-    public CreateReviewCommandHandler(IReviewRepository repository)
+    public CreateReviewCommandHandler(IReviewRepository repository, IReviewsCacheService cache)
     {
         _repository = repository;
+        _cache = cache;
     }
 
     public async Task<string> Handle(CreateReviewCommand cmd, CancellationToken ct)
@@ -20,6 +23,8 @@ public class CreateReviewCommandHandler : IRequestHandler<CreateReviewCommand, s
         var review = new Review(cmd.ProductId, cmd.ProductName, author, cmd.Rating, cmd.Text);
 
         await _repository.AddAsync(review, ct);
+        await _cache.RemoveAsync($"reviews:product:{cmd.ProductId}:1:20", "ReviewCreated", ct);
+
         return review.Id.ToString();
     }
 }
