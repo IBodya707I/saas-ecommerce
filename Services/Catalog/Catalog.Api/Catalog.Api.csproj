@@ -19,6 +19,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Catalog.Bll\Catalog.Bll.csproj" />
     <ProjectReference Include="..\Catalog.Dal\Catalog.Dal.csproj" />
+    <ProjectReference Include="..\..\..\Platform.ServiceDefaults\Platform.ServiceDefaults.csproj" />
   </ItemGroup>
 
 </Project>

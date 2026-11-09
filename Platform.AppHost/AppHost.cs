@@ -1,6 +1,7 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
-var postgres = builder.AddPostgres("postgres")
+var pgPassword = builder.AddParameter("postgres-password", "{N3sSr5x!V)}xAEEh4Y60k", secret: true);
+var postgres = builder.AddPostgres("postgres", password:pgPassword)
     .WithDataVolume();
 
 var ordersDb = postgres.AddDatabase("OrdersDb");
@@ -11,16 +12,32 @@ var mongo = builder.AddMongoDB("mongo")
 
 var showcaseDb = mongo.AddDatabase("showcase-db");
 
-builder.AddProject<Projects.Orders_Api>("orders-api")
+var orders = builder.AddProject<Projects.Orders_Api>("orders-api")
     .WithReference(ordersDb)
     .WaitFor(ordersDb);
 
-builder.AddProject<Projects.Catalog_Api>("catalog-api")
+var catalog = builder.AddProject<Projects.Catalog_Api>("catalog-api")
     .WithReference(catalogDb)
     .WaitFor(catalogDb);
 
-builder.AddProject<Projects.Reviews_WebApi>("reviews-api")
+var reviews = builder.AddProject<Projects.Reviews_WebApi>("reviews-api")
     .WithReference(showcaseDb)
     .WaitFor(showcaseDb);
+
+var aggregator = builder.AddProject<Projects.Platform_Aggregator>("aggregator")
+    .WithReference(orders)
+    .WaitFor(orders)
+    .WithReference(catalog)
+    .WaitFor(catalog)
+    .WithReference(reviews)
+    .WaitFor(reviews);
+
+var gateway = builder.AddProject<Projects.Platform_ApiGateway>("gateway")
+    .WithHttpEndpoint(port: 5000, name: "public")
+    .WithReference(orders)
+    .WithReference(catalog)
+    .WithReference(reviews)
+    .WithReference(aggregator)
+    .WaitFor(aggregator);
 
 builder.Build().Run();

@@ -2,6 +2,7 @@ namespace Reviews.Infrastructure.Persistence;
 
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
+using MongoDB.Driver.Core.Extensions.DiagnosticSources;
 using Reviews.Domain.Entities;
 
 public class MongoDbContext
@@ -15,6 +16,7 @@ public class MongoDbContext
     public MongoDbContext(IOptions<MongoDbOptions> options)
     {
         var settings = MongoClientSettings.FromConnectionString(options.Value.ConnectionString);
+        settings.ClusterConfigurator = cb => cb.Subscribe(new DiagnosticsActivityEventSubscriber());
         var client = new MongoClient(settings);
         Database = client.GetDatabase(options.Value.DatabaseName);
     }

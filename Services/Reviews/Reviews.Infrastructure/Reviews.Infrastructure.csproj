@@ -9,6 +9,7 @@
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.14" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.14" />
     <PackageReference Include="MongoDB.Driver" Version="3.13.0" />
+    <PackageReference Include="MongoDB.Driver.Core.Extensions.DiagnosticSources" Version="3.0.0" />
   </ItemGroup>
 
   <PropertyGroup>
