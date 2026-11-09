@@ -25,4 +25,8 @@
     <ProjectReference Include="..\..\..\Platform.ServiceDefaults\Platform.ServiceDefaults.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Protobuf Include="Protos\reviews.proto" GrpcServices="Server" />
+  </ItemGroup>
+
 </Project>

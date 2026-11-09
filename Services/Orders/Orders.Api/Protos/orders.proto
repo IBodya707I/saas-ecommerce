@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+option csharp_namespace = "Orders.Api.Grpc";
+
+package orders;
+
+// Service for querying orders
+service OrdersGrpcService {
+    rpc GetOrder (GetOrderRequest) returns (OrderReply);
+}
+
+message GetOrderRequest {
+    string id = 1;
+    string store_id = 2;
+}
+
+message OrderItemReply {
+    string product_id = 1;
+    string product_name = 2;
+    double unit_price = 3;
+    int32 quantity = 4;
+}
+
+message OrderDetailsReply {
+    string delivery_provider = 1;
+    string city = 2;
+    string warehouse_address = 3;
+    string recipient_phone = 4;
+    string notes = 5;
+}
+
+message OrderReply {
+    string id = 1;
+    string store_id = 2;
+    string customer_id = 3;
+    string status = 4;
+    string payment_method = 5;
+    double total_amount = 6;
+    int32 version = 7;
+    string created_at = 8;
+    OrderDetailsReply details = 9;
+    repeated OrderItemReply items = 10;
+}
