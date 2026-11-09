@@ -30,6 +30,9 @@ builder.Services.AddGrpc(options =>
     options.Interceptors.Add<Platform.ServiceDefaults.Grpc.LoggingInterceptor>();
 });
 
+builder.AddRedisDistributedCache("redis");
+builder.Services.AddMemoryCache();
+
 // 2. Database Connection String with Aspire and environment variable override support
 var connectionString = builder.Configuration.GetConnectionString("OrdersDb")
     ?? builder.Configuration.GetConnectionString("orders-db")

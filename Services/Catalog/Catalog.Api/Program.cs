@@ -28,6 +28,16 @@ builder.Services.AddGrpc(options =>
     options.Interceptors.Add<Platform.ServiceDefaults.Grpc.LoggingInterceptor>();
 });
 
+builder.AddRedisDistributedCache("redis");
+
+builder.Services.AddMemoryCache(options =>
+{
+    options.SizeLimit = 10_000;
+});
+
+builder.Services.AddSingleton<Catalog.Bll.Caching.CacheMetrics>();
+builder.Services.AddScoped<Catalog.Bll.Caching.ITwoLevelCacheService, Catalog.Bll.Caching.TwoLevelCacheService>();
+
 // 2. Database Connection String with Aspire and environment variable override support
 var connectionString = builder.Configuration.GetConnectionString("CatalogDb")
     ?? builder.Configuration.GetConnectionString("catalog-db")

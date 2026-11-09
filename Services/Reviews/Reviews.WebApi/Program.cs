@@ -23,6 +23,9 @@ builder.Services.AddGrpc(options =>
     options.Interceptors.Add<Platform.ServiceDefaults.Grpc.LoggingInterceptor>();
 });
 
+builder.AddRedisDistributedCache("redis");
+builder.Services.AddMemoryCache();
+
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
