@@ -27,6 +27,7 @@ public class DeleteReviewCommandHandler : IRequestHandler<DeleteReviewCommand>
             ?? throw new NotFoundException(nameof(Review), cmd.Id);
 
         await _repository.DeleteAsync(objectId, ct);
-        await _cache.RemoveAsync($"reviews:product:{review.ProductId}:1:20", "ReviewDeleted", ct);
+        await _cache.IncrementVersionAsync($"reviews:ver:{review.ProductId}", ct);
+        await _cache.IncrementVersionAsync("reviews:ver:all", ct);
     }
 }

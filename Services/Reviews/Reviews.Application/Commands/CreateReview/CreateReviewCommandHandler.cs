@@ -23,7 +23,8 @@ public class CreateReviewCommandHandler : IRequestHandler<CreateReviewCommand, s
         var review = new Review(cmd.ProductId, cmd.ProductName, author, cmd.Rating, cmd.Text);
 
         await _repository.AddAsync(review, ct);
-        await _cache.RemoveAsync($"reviews:product:{cmd.ProductId}:1:20", "ReviewCreated", ct);
+        await _cache.IncrementVersionAsync($"reviews:ver:{cmd.ProductId}", ct);
+        await _cache.IncrementVersionAsync("reviews:ver:all", ct);
 
         return review.Id.ToString();
     }

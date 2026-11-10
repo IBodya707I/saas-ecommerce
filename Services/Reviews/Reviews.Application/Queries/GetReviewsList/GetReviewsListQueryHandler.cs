@@ -21,9 +21,17 @@ public class GetReviewsListQueryHandler : IRequestHandler<GetReviewsListQuery, P
         var page = Math.Max(1, query.Page);
         var pageSize = Math.Clamp(query.PageSize, 1, 100);
 
-        var key = query.ProductId.HasValue
-            ? $"reviews:product:{query.ProductId}:{page}:{pageSize}"
-            : $"reviews:list:{page}:{pageSize}";
+        string key;
+        if (query.ProductId.HasValue)
+        {
+            var prodVer = await _cache.GetVersionAsync($"reviews:ver:{query.ProductId.Value}", ct);
+            key = $"reviews:product:{query.ProductId}:{prodVer}:{page}:{pageSize}";
+        }
+        else
+        {
+            var allVer = await _cache.GetVersionAsync("reviews:ver:all", ct);
+            key = $"reviews:list:{allVer}:{page}:{pageSize}";
+        }
 
         var result = await _cache.GetOrCreateAsync(
             key,

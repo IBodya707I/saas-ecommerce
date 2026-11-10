@@ -35,7 +35,11 @@ builder.AddRedisDistributedCache("redis", configureOptions: options =>
     options.ConnectTimeout = 1000;
     options.AbortOnConnectFail = false;
 });
-builder.Services.AddMemoryCache();
+builder.Services.AddMemoryCache(options =>
+{
+    options.SizeLimit = 10_000;
+    options.CompactionPercentage = 0.05;
+});
 
 // 2. Database Connection String with Aspire and environment variable override support
 var connectionString = builder.Configuration.GetConnectionString("OrdersDb")

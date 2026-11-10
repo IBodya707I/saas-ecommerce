@@ -28,6 +28,7 @@ public class UpdateReviewCommandHandler : IRequestHandler<UpdateReviewCommand>
 
         review.Update(cmd.Rating, cmd.Text);
         await _repository.UpdateAsync(review, ct);
-        await _cache.RemoveAsync($"reviews:product:{review.ProductId}:1:20", "ReviewUpdated", ct);
+        await _cache.IncrementVersionAsync($"reviews:ver:{review.ProductId}", ct);
+        await _cache.IncrementVersionAsync("reviews:ver:all", ct);
     }
 }

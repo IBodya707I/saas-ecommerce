@@ -101,6 +101,55 @@ public class ReviewsCacheService : IReviewsCacheService
         _logger.LogInformation("Cache invalidated {Key}, reason: {Reason}", key, reason);
     }
 
+    public async Task<long> GetVersionAsync(string versionKey, CancellationToken ct = default)
+    {
+        if (_memoryCache.TryGetValue(versionKey, out long l1Ver))
+        {
+            return l1Ver;
+        }
+
+        try
+        {
+            var l2Bytes = await _distributedCache.GetAsync(versionKey, ct);
+            if (l2Bytes != null && long.TryParse(System.Text.Encoding.UTF8.GetString(l2Bytes), out var l2Ver))
+            {
+                SetL1(versionKey, l2Ver, TimeSpan.FromMinutes(10));
+                return l2Ver;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to read cache version from Redis for key {Key}", versionKey);
+        }
+
+        SetL1(versionKey, 1L, TimeSpan.FromMinutes(10));
+        return 1L;
+    }
+
+    public async Task IncrementVersionAsync(string versionKey, CancellationToken ct = default)
+    {
+        var currentVer = await GetVersionAsync(versionKey, ct);
+        var newVer = currentVer + 1;
+
+        SetL1(versionKey, newVer, TimeSpan.FromMinutes(10));
+
+        try
+        {
+            var bytes = System.Text.Encoding.UTF8.GetBytes(newVer.ToString());
+            var l2Options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(7)
+            };
+            await _distributedCache.SetAsync(versionKey, bytes, l2Options, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to update cache version in Redis for key {Key}", versionKey);
+        }
+
+        _logger.LogInformation("Cache version incremented for {Key} to {Version}", versionKey, newVer);
+    }
+
     private void SetL1<T>(string key, T value, TimeSpan? expiration)
     {
         var options = new MemoryCacheEntryOptions

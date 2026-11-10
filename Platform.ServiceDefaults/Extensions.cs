@@ -66,8 +66,7 @@ public static class Extensions
                 metrics.AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
                     .AddRuntimeInstrumentation()
-                    .AddMeter("Catalog.Cache")
-                    .AddMeter("SaasPlatform.Caching");
+                    .AddMeter("Catalog.Cache");
             })
             .WithTracing(tracing =>
             {

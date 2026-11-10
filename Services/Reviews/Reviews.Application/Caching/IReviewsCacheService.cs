@@ -14,4 +14,8 @@ public interface IReviewsCacheService
         CancellationToken ct = default);
 
     Task RemoveAsync(string key, string reason, CancellationToken ct = default);
+
+    Task<long> GetVersionAsync(string versionKey, CancellationToken ct = default);
+
+    Task IncrementVersionAsync(string versionKey, CancellationToken ct = default);
 }
