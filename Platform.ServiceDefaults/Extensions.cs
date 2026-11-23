@@ -66,7 +66,10 @@ public static class Extensions
                 metrics.AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
                     .AddRuntimeInstrumentation()
-                    .AddMeter("Catalog.Cache");
+                    .AddMeter("Catalog.Cache")
+                    .AddMeter("Polly")
+                    .AddMeter("Orders.Api")
+                    .AddMeter("Catalog.Api");
             })
             .WithTracing(tracing =>
             {
