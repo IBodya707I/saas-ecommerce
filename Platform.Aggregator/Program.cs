@@ -82,6 +82,21 @@ builder.Services.AddGrpcClient<Reviews.WebApi.Grpc.ReviewsService.ReviewsService
     MethodConfigs = { nonCriticalGrpcRetryPolicy }
 });
 
+// --- gRPC Health Check Clients & Checks for Downstream Services ---
+builder.Services.AddGrpcClient<Grpc.Health.V1.Health.HealthClient>("CatalogHealth", o =>
+{
+    o.Address = new Uri("https://catalog-api");
+});
+
+builder.Services.AddGrpcClient<Grpc.Health.V1.Health.HealthClient>("OrdersHealth", o =>
+{
+    o.Address = new Uri("https://orders-api");
+});
+
+builder.Services.AddHealthChecks()
+    .AddCheck<Platform.Aggregator.HealthChecks.CatalogHealthCheck>("catalog-api", tags: new[] { "grpc", "downstream", "ready" })
+    .AddCheck<Platform.Aggregator.HealthChecks.OrdersHealthCheck>("orders-api", tags: new[] { "grpc", "downstream", "ready" });
+
 builder.Services.AddHttpClient<CatalogClient>(client =>
 {
     client.BaseAddress = new Uri("https://catalog-api");

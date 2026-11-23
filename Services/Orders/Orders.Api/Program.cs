@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Orders.Api.HealthChecks;
 using Orders.Api.Middlewares;
 using Orders.Bll.Interfaces;
 using Orders.Bll.Mapping;
@@ -15,6 +16,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 // 1. ServiceDefaults: Serilog, OpenTelemetry, HealthChecks, Service Discovery, Resilience
 builder.AddServiceDefaults();
+
+// Health checks: Database (orders-db) & Redis (Degraded)
+builder.Services.AddOrdersHealthChecks(builder.Configuration);
 
 // Configure Kestrel to support HTTP/1.1 (REST) and HTTP/2 (gRPC)
 builder.WebHost.ConfigureKestrel(options =>
@@ -29,6 +33,7 @@ builder.Services.AddGrpc(options =>
 {
     options.Interceptors.Add<Platform.ServiceDefaults.Grpc.LoggingInterceptor>();
 });
+builder.Services.AddGrpcHealthChecks();
 
 builder.AddRedisDistributedCache("redis", configureOptions: options =>
 {
@@ -110,5 +115,6 @@ if (!app.Environment.IsDevelopment())
 app.UseAuthorization();
 app.MapControllers();
 app.MapGrpcService<Orders.Api.Grpc.OrdersGrpcService>();
+app.MapGrpcHealthChecksService();
 
 app.Run();
