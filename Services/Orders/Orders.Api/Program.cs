@@ -50,7 +50,8 @@ var connectionString = builder.Configuration.GetConnectionString("OrdersDb")
 // 3. Dependency Injection: Scoped Unit of Work (one connection & transaction per HTTP request)
 builder.Services.AddScoped<IUnitOfWork>(_ => new UnitOfWork(connectionString));
 
-// 4. BLL Services
+// 4. BLL Services & Metrics
+builder.Services.AddSingleton<Orders.Api.Metrics.OrderMetrics>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 

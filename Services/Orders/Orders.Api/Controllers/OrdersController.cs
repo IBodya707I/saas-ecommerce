@@ -20,11 +20,13 @@ public class OrdersController : ControllerBase
 {
     private static readonly ActivitySource ActivitySource = new("Orders.Api");
     private readonly IOrderService _orderService;
+    private readonly Orders.Api.Metrics.OrderMetrics _metrics;
     private readonly ILogger<OrdersController> _logger;
 
-    public OrdersController(IOrderService orderService, ILogger<OrdersController> logger)
+    public OrdersController(IOrderService orderService, Orders.Api.Metrics.OrderMetrics metrics, ILogger<OrdersController> logger)
     {
         _orderService = orderService ?? throw new ArgumentNullException(nameof(orderService));
+        _metrics = metrics ?? throw new ArgumentNullException(nameof(metrics));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -102,19 +104,31 @@ public class OrdersController : ControllerBase
         [FromBody] CreateOrderDto dto,
         CancellationToken ct)
     {
-        using var activity = ActivitySource.StartActivity("CreateOrder");
-        var created = await _orderService.CreateAsync(dto, ct);
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            using var activity = ActivitySource.StartActivity("CreateOrder");
+            var created = await _orderService.CreateAsync(dto, ct);
 
-        activity?.SetTag("order.id", created.Id);
-        activity?.SetTag("order.storeId", created.StoreId);
+            activity?.SetTag("order.id", created.Id);
+            activity?.SetTag("order.storeId", created.StoreId);
 
-        _logger.LogInformation("Order {OrderId} created for store {StoreId} with {ItemCount} items, total {TotalAmount}",
-            created.Id, created.StoreId, created.Items?.Count ?? 0, created.TotalAmount);
+            _metrics.OrderCreated(created.Status ?? "Created");
+            _metrics.RecordDuration("create", success: true, sw.Elapsed.TotalMilliseconds);
 
-        return CreatedAtAction(
-            nameof(GetById),
-            new { id = created.Id, storeId = created.StoreId },
-            created);
+            _logger.LogInformation("Order {OrderId} created for store {StoreId} with {ItemCount} items, total {TotalAmount}",
+                created.Id, created.StoreId, created.Items?.Count ?? 0, created.TotalAmount);
+
+            return CreatedAtAction(
+                nameof(GetById),
+                new { id = created.Id, storeId = created.StoreId },
+                created);
+        }
+        catch
+        {
+            _metrics.RecordDuration("create", success: false, sw.Elapsed.TotalMilliseconds);
+            throw;
+        }
     }
 
     /// <summary>
@@ -131,14 +145,26 @@ public class OrdersController : ControllerBase
         [FromQuery] Guid storeId,
         CancellationToken ct)
     {
-        using var activity = ActivitySource.StartActivity("PayOrder");
-        activity?.SetTag("order.id", id);
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            using var activity = ActivitySource.StartActivity("PayOrder");
+            activity?.SetTag("order.id", id);
 
-        await _orderService.PayOrderAsync(id, storeId, ct);
+            await _orderService.PayOrderAsync(id, storeId, ct);
 
-        _logger.LogInformation("Order {OrderId} confirmed, payment processed, status {Status}", id, "Paid");
+            _metrics.OrderConfirmed("Paid");
+            _metrics.RecordDuration("confirm", success: true, sw.Elapsed.TotalMilliseconds);
 
-        return Ok(new { message = $"Order '{id}' payment processed successfully." });
+            _logger.LogInformation("Order {OrderId} confirmed, payment processed, status {Status}", id, "Paid");
+
+            return Ok(new { message = $"Order '{id}' payment processed successfully." });
+        }
+        catch
+        {
+            _metrics.RecordDuration("confirm", success: false, sw.Elapsed.TotalMilliseconds);
+            throw;
+        }
     }
 
     /// <summary>

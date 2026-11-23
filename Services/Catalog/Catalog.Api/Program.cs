@@ -41,6 +41,7 @@ builder.Services.AddMemoryCache(options =>
 });
 
 builder.Services.AddSingleton<Catalog.Bll.Caching.CacheMetrics>();
+builder.Services.AddSingleton<Catalog.Api.Metrics.CatalogMetrics>();
 builder.Services.AddScoped<Catalog.Bll.Caching.ITwoLevelCacheService, Catalog.Bll.Caching.TwoLevelCacheService>();
 
 // 2. Database Connection String with Aspire and environment variable override support
