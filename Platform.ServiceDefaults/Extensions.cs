@@ -24,6 +24,7 @@ public static class Extensions
             .MinimumLevel.Is(builder.Environment.IsDevelopment() ? LogEventLevel.Debug : LogEventLevel.Information)
             .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
             .MinimumLevel.Override("System.Net.Http.HttpClient", LogEventLevel.Warning)
+            .MinimumLevel.Override("StackExchange.Redis", LogEventLevel.Fatal)
             .Enrich.FromLogContext()
             .Enrich.WithProperty("ServiceName", builder.Environment.ApplicationName)
             .Enrich.WithEnvironmentName()
@@ -64,7 +65,8 @@ public static class Extensions
             {
                 metrics.AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
-                    .AddRuntimeInstrumentation();
+                    .AddRuntimeInstrumentation()
+                    .AddMeter("Catalog.Cache");
             })
             .WithTracing(tracing =>
             {

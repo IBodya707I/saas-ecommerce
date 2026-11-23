@@ -1,6 +1,7 @@
 namespace Reviews.Application.Storefronts.Commands.UpdateStorefrontBranding;
 
 using MediatR;
+using Reviews.Application.Caching;
 using Reviews.Application.Common.Exceptions;
 using Reviews.Domain.Entities;
 using Reviews.Domain.Interfaces;
@@ -9,10 +10,12 @@ using Reviews.Domain.ValueObjects;
 public class UpdateStorefrontBrandingCommandHandler : IRequestHandler<UpdateStorefrontBrandingCommand>
 {
     private readonly IStorefrontRepository _repository;
+    private readonly IReviewsCacheService _cache;
 
-    public UpdateStorefrontBrandingCommandHandler(IStorefrontRepository repository)
+    public UpdateStorefrontBrandingCommandHandler(IStorefrontRepository repository, IReviewsCacheService cache)
     {
         _repository = repository;
+        _cache = cache;
     }
 
     public async Task Handle(UpdateStorefrontBrandingCommand cmd, CancellationToken ct)
@@ -24,5 +27,6 @@ public class UpdateStorefrontBrandingCommandHandler : IRequestHandler<UpdateStor
         storefront.UpdateBranding(branding);
 
         await _repository.UpdateAsync(storefront, ct);
+        await _cache.RemoveAsync($"storefront:{storefront.Slug.ToLowerInvariant()}", "StorefrontBrandingUpdated", ct);
     }
 }

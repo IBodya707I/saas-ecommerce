@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AutoMapper;
+using Catalog.Bll.Caching;
 using Catalog.Bll.Dtos;
 using Catalog.Bll.Interfaces;
 using Catalog.Bll.Specifications;
@@ -13,11 +14,13 @@ public class ProductService : IProductService
 {
     private readonly IUnitOfWork _uow;
     private readonly IMapper _mapper;
+    private readonly ITwoLevelCacheService _cache;
 
-    public ProductService(IUnitOfWork uow, IMapper mapper)
+    public ProductService(IUnitOfWork uow, IMapper mapper, ITwoLevelCacheService cache)
     {
         _uow = uow;
         _mapper = mapper;
+        _cache = cache;
     }
 
     public async Task<PagedResult<ProductDto>> GetPagedAsync(ProductQuery query, CancellationToken ct = default)
@@ -36,11 +39,22 @@ public class ProductService : IProductService
 
     public async Task<ProductDto> GetByIdAsync(Guid id, CancellationToken ct = default)
     {
-        var product = await _uow.Products.GetWithDetailsAsync(id, ct);
-        if (product == null)
-            throw new NotFoundException($"Product with ID '{id}' was not found");
+        var key = $"catalog:product:{id}";
+        var dto = await _cache.GetOrCreateAsync(
+            key,
+            async () =>
+            {
+                var product = await _uow.Products.GetWithDetailsAsync(id, ct);
+                if (product == null)
+                    throw new NotFoundException($"Product with ID '{id}' was not found");
 
-        return _mapper.Map<ProductDto>(product);
+                return _mapper.Map<ProductDto>(product);
+            },
+            l1Expiration: TimeSpan.FromMinutes(1),
+            l2Expiration: TimeSpan.FromMinutes(10),
+            ct: ct);
+
+        return dto ?? throw new NotFoundException($"Product with ID '{id}' was not found");
     }
 
     public async Task<ProductDto> CreateAsync(CreateProductDto dto, CancellationToken ct = default)
@@ -119,6 +133,7 @@ public class ProductService : IProductService
 
         _uow.Products.Update(product);
         await _uow.SaveChangesAsync(ct);
+        await _cache.RemoveAsync($"catalog:product:{id}", "ProductUpdated", ct);
 
         return _mapper.Map<ProductDto>(product);
     }
@@ -134,6 +149,7 @@ public class ProductService : IProductService
 
         _uow.Products.Update(product);
         await _uow.SaveChangesAsync(ct);
+        await _cache.RemoveAsync($"catalog:product:{id}", "ProductPriceUpdated", ct);
 
         return _mapper.Map<ProductDto>(product);
     }
@@ -153,6 +169,7 @@ public class ProductService : IProductService
 
         _uow.Products.Update(product);
         await _uow.SaveChangesAsync(ct);
+        await _cache.RemoveAsync($"catalog:product:{id}", "ProductStockAdjusted", ct);
 
         return _mapper.Map<ProductDto>(product);
     }
@@ -168,6 +185,7 @@ public class ProductService : IProductService
 
         _uow.Products.Update(product);
         await _uow.SaveChangesAsync(ct);
+        await _cache.RemoveAsync($"catalog:product:{id}", "ProductDeleted", ct);
     }
 
     private static string NormalizeCharacteristics(string characteristics, Dictionary<string, object>? attributes)

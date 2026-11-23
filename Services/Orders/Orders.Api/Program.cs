@@ -16,6 +16,31 @@ var builder = WebApplication.CreateBuilder(args);
 // 1. ServiceDefaults: Serilog, OpenTelemetry, HealthChecks, Service Discovery, Resilience
 builder.AddServiceDefaults();
 
+// Configure Kestrel to support HTTP/1.1 (REST) and HTTP/2 (gRPC)
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.ConfigureEndpointDefaults(listenOptions =>
+    {
+        listenOptions.Protocols = Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1AndHttp2;
+    });
+});
+
+builder.Services.AddGrpc(options =>
+{
+    options.Interceptors.Add<Platform.ServiceDefaults.Grpc.LoggingInterceptor>();
+});
+
+builder.AddRedisDistributedCache("redis", configureOptions: options =>
+{
+    options.ConnectTimeout = 1000;
+    options.AbortOnConnectFail = false;
+});
+builder.Services.AddMemoryCache(options =>
+{
+    options.SizeLimit = 10_000;
+    options.CompactionPercentage = 0.05;
+});
+
 // 2. Database Connection String with Aspire and environment variable override support
 var connectionString = builder.Configuration.GetConnectionString("OrdersDb")
     ?? builder.Configuration.GetConnectionString("orders-db")
@@ -83,5 +108,6 @@ if (!app.Environment.IsDevelopment())
 
 app.UseAuthorization();
 app.MapControllers();
+app.MapGrpcService<Orders.Api.Grpc.OrdersGrpcService>();
 
 app.Run();

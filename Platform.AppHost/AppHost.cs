@@ -12,17 +12,26 @@ var mongo = builder.AddMongoDB("mongo")
 
 var showcaseDb = mongo.AddDatabase("showcase-db");
 
+var redis = builder.AddRedis("redis")
+    .WithDataVolume();
+
 var orders = builder.AddProject<Projects.Orders_Api>("orders-api")
     .WithReference(ordersDb)
-    .WaitFor(ordersDb);
+    .WaitFor(ordersDb)
+    .WithReference(redis)
+    .WaitFor(redis);
 
 var catalog = builder.AddProject<Projects.Catalog_Api>("catalog-api")
     .WithReference(catalogDb)
-    .WaitFor(catalogDb);
+    .WaitFor(catalogDb)
+    .WithReference(redis)
+    .WaitFor(redis);
 
 var reviews = builder.AddProject<Projects.Reviews_WebApi>("reviews-api")
     .WithReference(showcaseDb)
-    .WaitFor(showcaseDb);
+    .WaitFor(showcaseDb)
+    .WithReference(redis)
+    .WaitFor(redis);
 
 var aggregator = builder.AddProject<Projects.Platform_Aggregator>("aggregator")
     .WithReference(orders)
@@ -30,7 +39,9 @@ var aggregator = builder.AddProject<Projects.Platform_Aggregator>("aggregator")
     .WithReference(catalog)
     .WaitFor(catalog)
     .WithReference(reviews)
-    .WaitFor(reviews);
+    .WaitFor(reviews)
+    .WithReference(redis)
+    .WaitFor(redis);
 
 var gateway = builder.AddProject<Projects.Platform_ApiGateway>("gateway")
     .WithHttpEndpoint(port: 5000, name: "public")
