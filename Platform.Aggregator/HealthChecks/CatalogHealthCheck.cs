@@ -8,15 +8,8 @@ using Microsoft.Extensions.Logging;
 
 public class CatalogHealthCheck : IHealthCheck
 {
-    private readonly Health.HealthClient? _client;
-    private readonly GrpcClientFactory? _clientFactory;
+    private readonly GrpcClientFactory _clientFactory;
     private readonly ILogger<CatalogHealthCheck> _logger;
-
-    public CatalogHealthCheck(Health.HealthClient client, ILogger<CatalogHealthCheck> logger)
-    {
-        _client = client;
-        _logger = logger;
-    }
 
     public CatalogHealthCheck(GrpcClientFactory clientFactory, ILogger<CatalogHealthCheck> logger)
     {
@@ -28,8 +21,7 @@ public class CatalogHealthCheck : IHealthCheck
     {
         try
         {
-            var client = _client ?? _clientFactory?.CreateClient<Health.HealthClient>("CatalogHealth")
-                ?? throw new InvalidOperationException("gRPC Health client is not configured");
+            var client = _clientFactory.CreateClient<Health.HealthClient>("CatalogHealth");
 
             var reply = await client.CheckAsync(
                 new HealthCheckRequest(),

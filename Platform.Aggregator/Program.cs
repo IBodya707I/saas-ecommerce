@@ -13,11 +13,13 @@ AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
-builder.AddRedisDistributedCache("redis", configureOptions: options =>
-{
-    options.ConnectTimeout = 1000;
-    options.AbortOnConnectFail = false;
-});
+builder.AddRedisDistributedCache("redis",
+    configureSettings: settings => settings.DisableHealthChecks = true,
+    configureOptions: options =>
+    {
+        options.ConnectTimeout = 1000;
+        options.AbortOnConnectFail = false;
+    });
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -121,7 +123,7 @@ builder.Services.AddHttpClient<CatalogClient>(client =>
     };
 
     o.AttemptTimeout.Timeout = TimeSpan.FromSeconds(3);
-    o.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(15);
+    o.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(30);
 });
 
 builder.Services.AddHttpClient<OrdersClient>(client =>
@@ -148,7 +150,7 @@ builder.Services.AddHttpClient<OrdersClient>(client =>
     };
 
     o.AttemptTimeout.Timeout = TimeSpan.FromSeconds(3);
-    o.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(15);
+    o.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(30);
 });
 
 builder.Services.AddHttpClient<ReviewsClient>(client =>
@@ -187,8 +189,6 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
-app.UseMiddleware<CorrelationIdMiddleware>();
 
 app.UseAuthorization();
 

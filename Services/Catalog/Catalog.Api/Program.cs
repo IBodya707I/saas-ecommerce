@@ -33,11 +33,13 @@ builder.Services.AddGrpc(options =>
 });
 builder.Services.AddGrpcHealthChecks();
 
-builder.AddRedisDistributedCache("redis", configureOptions: options =>
-{
-    options.ConnectTimeout = 1000;
-    options.AbortOnConnectFail = false;
-});
+builder.AddRedisDistributedCache("redis",
+    configureSettings: settings => settings.DisableHealthChecks = true,
+    configureOptions: options =>
+    {
+        options.ConnectTimeout = 1000;
+        options.AbortOnConnectFail = false;
+    });
 
 builder.Services.AddMemoryCache(options =>
 {

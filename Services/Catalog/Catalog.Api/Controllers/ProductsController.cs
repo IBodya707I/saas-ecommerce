@@ -83,6 +83,7 @@ public class ProductsController : ControllerBase
             activity?.SetTag("product.id", created.Id);
 
             _metrics.ProductUpdated("create");
+            _metrics.IncrementActiveProducts();
             _metrics.RecordDuration("create", success: true, sw.Elapsed.TotalMilliseconds);
 
             _logger.LogInformation("Product {ProductId} created with name '{ProductName}' and price {Price}",
@@ -161,6 +162,7 @@ public class ProductsController : ControllerBase
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
         await _productService.DeleteAsync(id, ct);
+        _metrics.DecrementActiveProducts();
         return NoContent();
     }
 }

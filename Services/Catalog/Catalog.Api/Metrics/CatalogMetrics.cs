@@ -39,4 +39,15 @@ public class CatalogMetrics
 
     public void SetActiveProductsCount(int count) =>
         Interlocked.Exchange(ref _activeProductsCount, count);
+
+    public void IncrementActiveProducts() =>
+        Interlocked.Increment(ref _activeProductsCount);
+
+    public void DecrementActiveProducts()
+    {
+        if (_activeProductsCount > 0)
+        {
+            Interlocked.Decrement(ref _activeProductsCount);
+        }
+    }
 }

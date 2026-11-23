@@ -114,6 +114,7 @@ public class OrdersController : ControllerBase
             activity?.SetTag("order.storeId", created.StoreId);
 
             _metrics.OrderCreated(created.Status ?? "Created");
+            _metrics.IncrementAwaitingValidation();
             _metrics.RecordDuration("create", success: true, sw.Elapsed.TotalMilliseconds);
 
             _logger.LogInformation("Order {OrderId} created for store {StoreId} with {ItemCount} items, total {TotalAmount}",
@@ -154,6 +155,7 @@ public class OrdersController : ControllerBase
             await _orderService.PayOrderAsync(id, storeId, ct);
 
             _metrics.OrderConfirmed("Paid");
+            _metrics.DecrementAwaitingValidation();
             _metrics.RecordDuration("confirm", success: true, sw.Elapsed.TotalMilliseconds);
 
             _logger.LogInformation("Order {OrderId} confirmed, payment processed, status {Status}", id, "Paid");

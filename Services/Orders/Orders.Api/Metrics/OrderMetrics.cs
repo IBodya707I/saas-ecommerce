@@ -48,4 +48,15 @@ public class OrderMetrics
 
     public void SetAwaitingValidationCount(int count) =>
         Interlocked.Exchange(ref _awaitingValidationCount, count);
+
+    public void IncrementAwaitingValidation() =>
+        Interlocked.Increment(ref _awaitingValidationCount);
+
+    public void DecrementAwaitingValidation()
+    {
+        if (_awaitingValidationCount > 0)
+        {
+            Interlocked.Decrement(ref _awaitingValidationCount);
+        }
+    }
 }
