@@ -78,6 +78,7 @@ public static class Extensions
                     .AddSource("Orders.Api")
                     .AddSource("Catalog.Api")
                     .AddSource("Reviews.WebApi")
+                    .AddSource("Platform.Messaging")
                     .AddSource("MongoDB.Driver.Core.Extensions.DiagnosticSources")
                     .AddSource("Npgsql")
                     .AddSource("Microsoft.EntityFrameworkCore")

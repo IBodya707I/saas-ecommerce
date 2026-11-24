@@ -9,11 +9,16 @@ using Catalog.Dal.Repositories;
 using Catalog.Dal.Seeding;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using Platform.EventBus.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // 1. ServiceDefaults: Serilog, OpenTelemetry, HealthChecks, Service Discovery, Resilience
 builder.AddServiceDefaults();
+
+// RabbitMQ messaging client & event publisher
+builder.AddRabbitMQClient("messaging");
+builder.AddEventPublisher();
 
 // Health checks: Database (catalog-db) & Redis (Degraded)
 builder.Services.AddCatalogHealthChecks(builder.Configuration);

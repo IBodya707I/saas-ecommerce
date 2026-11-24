@@ -15,11 +15,17 @@ var showcaseDb = mongo.AddDatabase("showcase-db");
 var redis = builder.AddRedis("redis")
     .WithDataVolume();
 
+var rabbit = builder.AddRabbitMQ("messaging")
+    .WithDataVolume()
+    .WithManagementPlugin();
+
 var orders = builder.AddProject<Projects.Orders_Api>("orders-api")
     .WithReference(ordersDb)
     .WaitFor(ordersDb)
     .WithReference(redis)
     .WaitFor(redis)
+    .WithReference(rabbit)
+    .WaitFor(rabbit)
     .WithHttpHealthCheck("/health");
 
 var catalog = builder.AddProject<Projects.Catalog_Api>("catalog-api")
@@ -27,6 +33,8 @@ var catalog = builder.AddProject<Projects.Catalog_Api>("catalog-api")
     .WaitFor(catalogDb)
     .WithReference(redis)
     .WaitFor(redis)
+    .WithReference(rabbit)
+    .WaitFor(rabbit)
     .WithHttpHealthCheck("/health");
 
 var reviews = builder.AddProject<Projects.Reviews_WebApi>("reviews-api")
@@ -34,6 +42,8 @@ var reviews = builder.AddProject<Projects.Reviews_WebApi>("reviews-api")
     .WaitFor(showcaseDb)
     .WithReference(redis)
     .WaitFor(redis)
+    .WithReference(rabbit)
+    .WaitFor(rabbit)
     .WithHttpHealthCheck("/health");
 
 var aggregator = builder.AddProject<Projects.Platform_Aggregator>("aggregator")

@@ -20,5 +20,6 @@
   <Project Path="Platform.AppHost/Platform.AppHost.csproj" Id="44d4387c-2358-44e7-870e-d894e57c1ad7" />
   <Project Path="Platform.Aggregator/Platform.Aggregator.csproj" />
   <Project Path="Platform.ApiGateway/Platform.ApiGateway.csproj" />
+  <Project Path="Platform.EventBus/Platform.EventBus.csproj" />
   <Project Path="Platform.ServiceDefaults/Platform.ServiceDefaults.csproj" />
 </Solution>

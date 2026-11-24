@@ -10,6 +10,9 @@ var builder = WebApplication.CreateBuilder(args);
 // 1. ServiceDefaults: Serilog, OpenTelemetry, HealthChecks, Service Discovery, Resilience
 builder.AddServiceDefaults();
 
+// RabbitMQ messaging client
+builder.AddRabbitMQClient("messaging");
+
 // Health checks: Database (reviews-db) & Redis (Degraded)
 builder.Services.AddReviewsHealthChecks(builder.Configuration);
 
