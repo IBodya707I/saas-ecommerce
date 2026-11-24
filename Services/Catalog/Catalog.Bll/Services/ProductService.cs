@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using AutoMapper;
 using Catalog.Bll.Caching;
@@ -7,6 +8,11 @@ using Catalog.Bll.Specifications;
 using Catalog.Dal;
 using Catalog.Domain.Entities;
 using Catalog.Domain.Exceptions;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+using Platform.EventBus.Abstractions;
+using Platform.EventBus.Events;
+using Platform.EventBus.Topology;
 
 namespace Catalog.Bll.Services;
 
@@ -15,12 +21,31 @@ public class ProductService : IProductService
     private readonly IUnitOfWork _uow;
     private readonly IMapper _mapper;
     private readonly ITwoLevelCacheService _cache;
+    private readonly IEventPublisher _publisher;
+    private readonly IHttpContextAccessor? _httpContextAccessor;
+    private readonly ILogger<ProductService>? _logger;
 
-    public ProductService(IUnitOfWork uow, IMapper mapper, ITwoLevelCacheService cache)
+    public ProductService(
+        IUnitOfWork uow,
+        IMapper mapper,
+        ITwoLevelCacheService cache,
+        IEventPublisher publisher,
+        IHttpContextAccessor? httpContextAccessor = null,
+        ILogger<ProductService>? logger = null)
     {
         _uow = uow;
         _mapper = mapper;
         _cache = cache;
+        _publisher = publisher;
+        _httpContextAccessor = httpContextAccessor;
+        _logger = logger;
+    }
+
+    private string? GetCorrelationId()
+    {
+        return _httpContextAccessor?.HttpContext?.Request.Headers["X-Correlation-Id"].FirstOrDefault()
+            ?? Activity.Current?.Id
+            ?? Guid.NewGuid().ToString();
     }
 
     public async Task<PagedResult<ProductDto>> GetPagedAsync(ProductQuery query, CancellationToken ct = default)
@@ -99,6 +124,9 @@ public class ProductService : IProductService
         if (product == null)
             throw new NotFoundException($"Product with ID '{id}' was not found");
 
+        var oldPrice = product.Price;
+        var oldName = product.Name;
+
         _uow.SetStoreContext(product.StoreId);
 
         if (!string.Equals(product.Sku, dto.Sku, StringComparison.OrdinalIgnoreCase))
@@ -135,6 +163,32 @@ public class ProductService : IProductService
         await _uow.SaveChangesAsync(ct);
         await _cache.RemoveAsync($"catalog:product:{id}", "ProductUpdated", ct);
 
+        var correlationId = GetCorrelationId();
+
+        if (oldPrice != product.Price)
+        {
+            await _publisher.PublishAsync(
+                new ProductPriceChangedEvent(product.Id, product.Name, oldPrice, product.Price)
+                {
+                    CorrelationId = correlationId
+                },
+                RabbitMqTopology.CatalogExchange,
+                RabbitMqTopology.ProductPriceChangedRoutingKey,
+                ct);
+        }
+
+        if (!string.Equals(oldName, product.Name, StringComparison.Ordinal))
+        {
+            await _publisher.PublishAsync(
+                new ProductRenamedEvent(product.Id, oldName, product.Name)
+                {
+                    CorrelationId = correlationId
+                },
+                RabbitMqTopology.CatalogExchange,
+                RabbitMqTopology.ProductRenamedRoutingKey,
+                ct);
+        }
+
         return _mapper.Map<ProductDto>(product);
     }
 
@@ -144,12 +198,26 @@ public class ProductService : IProductService
         if (product == null)
             throw new NotFoundException($"Product with ID '{id}' was not found");
 
+        var oldPrice = product.Price;
+
         _uow.SetStoreContext(product.StoreId);
         product.UpdatePrice(newPrice);
 
         _uow.Products.Update(product);
         await _uow.SaveChangesAsync(ct);
         await _cache.RemoveAsync($"catalog:product:{id}", "ProductPriceUpdated", ct);
+
+        if (oldPrice != product.Price)
+        {
+            await _publisher.PublishAsync(
+                new ProductPriceChangedEvent(product.Id, product.Name, oldPrice, product.Price)
+                {
+                    CorrelationId = GetCorrelationId()
+                },
+                RabbitMqTopology.CatalogExchange,
+                RabbitMqTopology.ProductPriceChangedRoutingKey,
+                ct);
+        }
 
         return _mapper.Map<ProductDto>(product);
     }
