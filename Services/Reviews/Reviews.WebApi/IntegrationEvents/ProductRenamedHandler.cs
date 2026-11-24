@@ -32,7 +32,7 @@ public class ProductRenamedHandler(
 
         var result = await _reviews.UpdateManyAsync(filter, update, cancellationToken: ct);
 
-        logger.LogInformation("Updated product name to '{NewName}' across {Count} reviews (Event {EventId})",
-            e.ProductName, result.ModifiedCount, e.EventId);
+        logger.LogInformation("Updated product name to '{NewName}' across {Count} reviews (Event {EventId}, CorrelationId: {CorrelationId})",
+            e.ProductName, result.ModifiedCount, e.EventId, e.CorrelationId);
     }
 }

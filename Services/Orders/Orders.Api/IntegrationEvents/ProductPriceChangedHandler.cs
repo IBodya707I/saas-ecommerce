@@ -23,14 +23,14 @@ public class ProductPriceChangedHandler(IUnitOfWork uow, ILogger<ProductPriceCha
 
             await uow.Products.UpdateSnapshotAsync(e.ProductId, e.ProductName, e.NewPrice, ct);
             await uow.CommitAsync(ct);
-            logger.LogInformation("Updated product {ProductId} price to {NewPrice} (Event {EventId})",
-                e.ProductId, e.NewPrice, e.EventId);
+            logger.LogInformation("Updated product {ProductId} price to {NewPrice} (Event {EventId}, CorrelationId: {CorrelationId})",
+                e.ProductId, e.NewPrice, e.EventId, e.CorrelationId);
         }
         catch (Exception ex)
         {
             await uow.RollbackAsync(ct);
-            logger.LogError(ex, "Failed to process ProductPriceChangedEvent {EventId} for product {ProductId}",
-                e.EventId, e.ProductId);
+            logger.LogError(ex, "Failed to process ProductPriceChangedEvent {EventId} (CorrelationId: {CorrelationId}) for product {ProductId}",
+                e.EventId, e.CorrelationId, e.ProductId);
             throw;
         }
     }

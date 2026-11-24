@@ -43,7 +43,7 @@ public class RabbitMqEventPublisher(IConnection connection, ILogger<RabbitMqEven
             body: body,
             cancellationToken: ct);
 
-        logger.LogInformation("Published {EventType} {EventId} to {Exchange}/{RoutingKey}",
-            typeof(T).Name, @event.EventId, exchange, routingKey);
+        logger.LogInformation("Published {EventType} {EventId} (CorrelationId: {CorrelationId}) to {Exchange}/{RoutingKey}",
+            typeof(T).Name, @event.EventId, @event.CorrelationId, exchange, routingKey);
     }
 }

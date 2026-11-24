@@ -23,14 +23,14 @@ public class ProductRenamedHandler(IUnitOfWork uow, ILogger<ProductRenamedHandle
 
             await uow.Products.UpdateNameSnapshotAsync(e.ProductId, e.NewName, ct);
             await uow.CommitAsync(ct);
-            logger.LogInformation("Updated product {ProductId} name to '{NewName}' (Event {EventId})",
-                e.ProductId, e.NewName, e.EventId);
+            logger.LogInformation("Updated product {ProductId} name to '{NewName}' (Event {EventId}, CorrelationId: {CorrelationId})",
+                e.ProductId, e.NewName, e.EventId, e.CorrelationId);
         }
         catch (Exception ex)
         {
             await uow.RollbackAsync(ct);
-            logger.LogError(ex, "Failed to process ProductRenamedEvent {EventId} for product {ProductId}",
-                e.EventId, e.ProductId);
+            logger.LogError(ex, "Failed to process ProductRenamedEvent {EventId} (CorrelationId: {CorrelationId}) for product {ProductId}",
+                e.EventId, e.CorrelationId, e.ProductId);
             throw;
         }
     }
