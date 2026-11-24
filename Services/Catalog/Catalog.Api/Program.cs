@@ -1,3 +1,4 @@
+using Catalog.Api.HealthChecks;
 using Catalog.Api.Middlewares;
 using Catalog.Bll.Interfaces;
 using Catalog.Bll.Mapping;
@@ -14,6 +15,9 @@ var builder = WebApplication.CreateBuilder(args);
 // 1. ServiceDefaults: Serilog, OpenTelemetry, HealthChecks, Service Discovery, Resilience
 builder.AddServiceDefaults();
 
+// Health checks: Database (catalog-db) & Redis (Degraded)
+builder.Services.AddCatalogHealthChecks(builder.Configuration);
+
 // Configure Kestrel to support HTTP/1.1 (REST) and HTTP/2 (gRPC)
 builder.WebHost.ConfigureKestrel(options =>
 {
@@ -27,12 +31,15 @@ builder.Services.AddGrpc(options =>
 {
     options.Interceptors.Add<Platform.ServiceDefaults.Grpc.LoggingInterceptor>();
 });
+builder.Services.AddGrpcHealthChecks();
 
-builder.AddRedisDistributedCache("redis", configureOptions: options =>
-{
-    options.ConnectTimeout = 1000;
-    options.AbortOnConnectFail = false;
-});
+builder.AddRedisDistributedCache("redis",
+    configureSettings: settings => settings.DisableHealthChecks = true,
+    configureOptions: options =>
+    {
+        options.ConnectTimeout = 1000;
+        options.AbortOnConnectFail = false;
+    });
 
 builder.Services.AddMemoryCache(options =>
 {
@@ -41,6 +48,7 @@ builder.Services.AddMemoryCache(options =>
 });
 
 builder.Services.AddSingleton<Catalog.Bll.Caching.CacheMetrics>();
+builder.Services.AddSingleton<Catalog.Api.Metrics.CatalogMetrics>();
 builder.Services.AddScoped<Catalog.Bll.Caching.ITwoLevelCacheService, Catalog.Bll.Caching.TwoLevelCacheService>();
 
 // 2. Database Connection String with Aspire and environment variable override support
@@ -112,5 +120,6 @@ using (var scope = app.Services.CreateScope())
 app.UseAuthorization();
 app.MapControllers();
 app.MapGrpcService<Catalog.Api.Grpc.CatalogGrpcService>();
+app.MapGrpcHealthChecksService();
 
 app.Run();

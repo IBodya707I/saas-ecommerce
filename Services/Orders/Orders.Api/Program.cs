@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Orders.Api.HealthChecks;
 using Orders.Api.Middlewares;
 using Orders.Bll.Interfaces;
 using Orders.Bll.Mapping;
@@ -15,6 +16,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 // 1. ServiceDefaults: Serilog, OpenTelemetry, HealthChecks, Service Discovery, Resilience
 builder.AddServiceDefaults();
+
+// Health checks: Database (orders-db) & Redis (Degraded)
+builder.Services.AddOrdersHealthChecks(builder.Configuration);
 
 // Configure Kestrel to support HTTP/1.1 (REST) and HTTP/2 (gRPC)
 builder.WebHost.ConfigureKestrel(options =>
@@ -29,12 +33,15 @@ builder.Services.AddGrpc(options =>
 {
     options.Interceptors.Add<Platform.ServiceDefaults.Grpc.LoggingInterceptor>();
 });
+builder.Services.AddGrpcHealthChecks();
 
-builder.AddRedisDistributedCache("redis", configureOptions: options =>
-{
-    options.ConnectTimeout = 1000;
-    options.AbortOnConnectFail = false;
-});
+builder.AddRedisDistributedCache("redis",
+    configureSettings: settings => settings.DisableHealthChecks = true,
+    configureOptions: options =>
+    {
+        options.ConnectTimeout = 1000;
+        options.AbortOnConnectFail = false;
+    });
 builder.Services.AddMemoryCache(options =>
 {
     options.SizeLimit = 10_000;
@@ -50,7 +57,8 @@ var connectionString = builder.Configuration.GetConnectionString("OrdersDb")
 // 3. Dependency Injection: Scoped Unit of Work (one connection & transaction per HTTP request)
 builder.Services.AddScoped<IUnitOfWork>(_ => new UnitOfWork(connectionString));
 
-// 4. BLL Services
+// 4. BLL Services & Metrics
+builder.Services.AddSingleton<Orders.Api.Metrics.OrderMetrics>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 
@@ -109,5 +117,6 @@ if (!app.Environment.IsDevelopment())
 app.UseAuthorization();
 app.MapControllers();
 app.MapGrpcService<Orders.Api.Grpc.OrdersGrpcService>();
+app.MapGrpcHealthChecksService();
 
 app.Run();

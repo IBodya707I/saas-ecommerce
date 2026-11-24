@@ -20,17 +20,20 @@ public class ProductsController : ControllerBase
     private readonly IProductService _productService;
     private readonly IValidator<CreateProductDto> _createValidator;
     private readonly IValidator<UpdateProductDto> _updateValidator;
+    private readonly Catalog.Api.Metrics.CatalogMetrics _metrics;
     private readonly ILogger<ProductsController> _logger;
 
     public ProductsController(
         IProductService productService,
         IValidator<CreateProductDto> createValidator,
         IValidator<UpdateProductDto> updateValidator,
+        Catalog.Api.Metrics.CatalogMetrics metrics,
         ILogger<ProductsController> logger)
     {
         _productService = productService;
         _createValidator = createValidator;
         _updateValidator = updateValidator;
+        _metrics = metrics;
         _logger = logger;
     }
 
@@ -73,13 +76,26 @@ public class ProductsController : ControllerBase
         }
 
         using var activity = ActivitySource.StartActivity("CreateProduct");
-        var created = await _productService.CreateAsync(dto, ct);
-        activity?.SetTag("product.id", created.Id);
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            var created = await _productService.CreateAsync(dto, ct);
+            activity?.SetTag("product.id", created.Id);
 
-        _logger.LogInformation("Product {ProductId} created with name '{ProductName}' and price {Price}",
-            created.Id, created.Name, created.Price);
+            _metrics.ProductUpdated("create");
+            _metrics.IncrementActiveProducts();
+            _metrics.RecordDuration("create", success: true, sw.Elapsed.TotalMilliseconds);
 
-        return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+            _logger.LogInformation("Product {ProductId} created with name '{ProductName}' and price {Price}",
+                created.Id, created.Name, created.Price);
+
+            return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+        }
+        catch
+        {
+            _metrics.RecordDuration("create", success: false, sw.Elapsed.TotalMilliseconds);
+            throw;
+        }
     }
 
     [HttpPut("{id:guid}")]
@@ -97,11 +113,23 @@ public class ProductsController : ControllerBase
         using var activity = ActivitySource.StartActivity("UpdateProduct");
         activity?.SetTag("product.id", id);
 
-        var updated = await _productService.UpdateAsync(id, dto, ct);
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            var updated = await _productService.UpdateAsync(id, dto, ct);
 
-        _logger.LogInformation("Product {ProductId} updated successfully", id);
+            _metrics.ProductUpdated("update");
+            _metrics.RecordDuration("update", success: true, sw.Elapsed.TotalMilliseconds);
 
-        return Ok(updated);
+            _logger.LogInformation("Product {ProductId} updated successfully", id);
+
+            return Ok(updated);
+        }
+        catch
+        {
+            _metrics.RecordDuration("update", success: false, sw.Elapsed.TotalMilliseconds);
+            throw;
+        }
     }
 
     [HttpPatch("{id:guid}/price")]
@@ -134,6 +162,7 @@ public class ProductsController : ControllerBase
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
         await _productService.DeleteAsync(id, ct);
+        _metrics.DecrementActiveProducts();
         return NoContent();
     }
 }

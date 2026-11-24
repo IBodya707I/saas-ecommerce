@@ -2,12 +2,16 @@ using Reviews.Application;
 using Reviews.Application.Common.Mappings;
 using Reviews.Infrastructure;
 using Reviews.Infrastructure.Seeding;
+using Reviews.WebApi.HealthChecks;
 using Reviews.WebApi.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // 1. ServiceDefaults: Serilog, OpenTelemetry, HealthChecks, Service Discovery, Resilience
 builder.AddServiceDefaults();
+
+// Health checks: Database (reviews-db) & Redis (Degraded)
+builder.Services.AddReviewsHealthChecks(builder.Configuration);
 
 // Configure Kestrel to support HTTP/1.1 (REST) and HTTP/2 (gRPC)
 builder.WebHost.ConfigureKestrel(options =>
@@ -22,12 +26,15 @@ builder.Services.AddGrpc(options =>
 {
     options.Interceptors.Add<Platform.ServiceDefaults.Grpc.LoggingInterceptor>();
 });
+builder.Services.AddGrpcHealthChecks();
 
-builder.AddRedisDistributedCache("redis", configureOptions: options =>
-{
-    options.ConnectTimeout = 1000;
-    options.AbortOnConnectFail = false;
-});
+builder.AddRedisDistributedCache("redis",
+    configureSettings: settings => settings.DisableHealthChecks = true,
+    configureOptions: options =>
+    {
+        options.ConnectTimeout = 1000;
+        options.AbortOnConnectFail = false;
+    });
 builder.Services.AddMemoryCache(options =>
 {
     options.SizeLimit = 10_000;
@@ -79,5 +86,6 @@ if (app.Environment.IsDevelopment())
 app.UseAuthorization();
 app.MapControllers();
 app.MapGrpcService<Reviews.WebApi.Grpc.ReviewsGrpcService>();
+app.MapGrpcHealthChecksService();
 
 app.Run();

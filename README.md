@@ -395,3 +395,44 @@ dotnet run --project Platform.AppHost/Platform.AppHost.csproj
 * **Resources:** моніторинг стану всіх сервісів та баз даних.
 * **Structured logs:** перегляд структурованих JSON логів з фільтрацією за `CorrelationId`.
 * **Traces:** наскрізні розподілені трейси запитів від Gateway до мікросервісів та звернень до PostgreSQL і MongoDB.
+
+---
+
+## 8. Стійкість (Resilience), Бізнес-метрики та Health Checks
+
+### 8.1. Обґрунтування політик стійкості (Resilience Policies) для клієнтів Aggregator
+
+| Клієнт | Критичність | Протокол | Політика Retry | Circuit Breaker | Таймаути (Спроба / Загальний) | Обґрунтування вибору |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Catalog** | **Критичний** | gRPC / HTTP | 4 спроби (gRPC `ServiceConfig`) / 5 спроб (HTTP), Exponential Jitter | Чутливий (`FailureRatio: 0.3`, поріг 10, пауза 15с) | 3с / 30с | Без даних товару агрегатор не може сформувати чек або показати замовлення. Потрібно наполегливо боротися за відновлення зв'язку, але при частих збоях (30%) розмикати коло для захисту сервісу від перевантаження. |
+| **Orders** | **Критичний** | gRPC / HTTP | 4 спроби (gRPC `ServiceConfig`) / 5 спроб (HTTP), Exponential Jitter | Чутливий (`FailureRatio: 0.3`, поріг 10, пауза 15с) | 3с / 30с | Замовлення є ядром фінансових транзакцій. Retry вимкнено для небезпечних методів (`DisableForUnsafeHttpMethods()`), щоб уникнути дублювання платежів. |
+| **Reviews** | **Некритичний** | gRPC / HTTP | 2 спроби (gRPC) / 1 спроба (HTTP), Exponential Jitter | Толерантний (`FailureRatio: 0.7`, поріг 10, пауза 5с) | 2с / 5с | Відгуки є допоміжною інформацією. Якщо сервіс відгуків недоступний або повільний, агрегатор швидко здається (Fail Fast) і повертає замовлення без відгуків з попередженням (`Graceful Degradation`). |
+
+### 8.2. Health Checks (Liveness, Readiness, gRPC, DB, Redis)
+
+Впроваджено комплексний багаторівневий моніторинг здоров'я:
+1. **Liveness (`/health/live`)**:
+   - Швидка перевірка працездатності процесу (< 100 мс) за тегом `live` без звернення до зовнішніх залежностей.
+2. **Readiness (`/health/ready`)**:
+   - Повна діагностика готовності приймати трафік за тегом `ready` з JSON-деталізацією кожного компонента:
+     - `orders-db`, `catalog-db` (PostgreSQL `SELECT 1`, таймаут 5с);
+     - `reviews-db` (MongoDB ping, таймаут 5с);
+     - `redis-cache` (Redis ping, таймаут 3с, статус **`HealthStatus.Degraded`** — недоступність кешу не блокує систему);
+     - `catalog-api`, `orders-api` (gRPC Health Checking Protocol через `Health.HealthClient`).
+3. **Aspire Dashboard Integration**:
+   - Усі сервіси підключені через `.WithHttpHealthCheck("/health")` у `Platform.AppHost/AppHost.cs`, що відображає кольоровий статус у панелі ресурсів Aspire.
+
+### 8.3. Бізнес-метрики (OpenTelemetry Meter API)
+
+Впроваджено спеціалізовані метрики за допомогою `IMeterFactory`:
+- **Лічильники (`Counter<long>`)**:
+  - `orders.created`, `orders.confirmed` (тег `order.status`);
+  - `products.updated` (тег `operation`).
+- **Гістограми затримок (`Histogram<double>`)**:
+  - `orders.operation.duration`, `products.operation.duration` (у мілісекундах `ms`).
+  - Фіксація тривалості для успішних (`status: "success"`) та невдалих (`status: "failure"`) операцій за допомогою `Stopwatch`.
+- **ObservableGauge**:
+  - `orders.awaiting_validation` (кількість замовлень, що очікують підтвердження);
+  - `products.active_count` (кількість активних товарів).
+- **Метрики Polly**:
+  - Метрика `Polly` зареєстрована в `ServiceDefaults` для візуалізації подій retry та circuit breaker у веб-панелі Aspire.

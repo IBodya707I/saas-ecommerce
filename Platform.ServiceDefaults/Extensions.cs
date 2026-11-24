@@ -66,7 +66,10 @@ public static class Extensions
                 metrics.AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
                     .AddRuntimeInstrumentation()
-                    .AddMeter("Catalog.Cache");
+                    .AddMeter("Catalog.Cache")
+                    .AddMeter("Polly")
+                    .AddMeter("Orders.Api")
+                    .AddMeter("Catalog.Api");
             })
             .WithTracing(tracing =>
             {
@@ -119,6 +122,56 @@ public static class Extensions
             Predicate = r => r.Tags.Contains("live")
         });
 
+        app.MapHealthChecks("/health/live", new HealthCheckOptions
+        {
+            Predicate = check => check.Tags.Contains("live")
+        });
+
+        app.MapHealthChecks("/health/ready", new HealthCheckOptions
+        {
+            Predicate = check => check.Tags.Contains("ready"),
+            ResponseWriter = WriteJsonResponse
+        });
+
         return app;
+    }
+
+    private static async Task WriteJsonResponse(HttpContext context, HealthReport report)
+    {
+        context.Response.ContentType = "application/json; charset=utf-8";
+
+        var options = new System.Text.Json.JsonWriterOptions { Indented = true };
+        using var memoryStream = new System.IO.MemoryStream();
+        await using (var writer = new System.Text.Json.Utf8JsonWriter(memoryStream, options))
+        {
+            writer.WriteStartObject();
+            writer.WriteString("status", report.Status.ToString());
+            writer.WriteString("totalDuration", report.TotalDuration.ToString());
+            writer.WriteStartObject("entries");
+
+            foreach (var entry in report.Entries)
+            {
+                writer.WriteStartObject(entry.Key);
+                writer.WriteString("status", entry.Value.Status.ToString());
+                writer.WriteString("description", entry.Value.Description);
+                writer.WriteString("duration", entry.Value.Duration.ToString());
+                if (entry.Value.Exception != null)
+                {
+                    writer.WriteString("error", entry.Value.Exception.Message);
+                }
+                writer.WriteStartArray("tags");
+                foreach (var tag in entry.Value.Tags)
+                {
+                    writer.WriteStringValue(tag);
+                }
+                writer.WriteEndArray();
+                writer.WriteEndObject();
+            }
+
+            writer.WriteEndObject();
+            writer.WriteEndObject();
+        }
+
+        await context.Response.Body.WriteAsync(memoryStream.ToArray());
     }
 }
