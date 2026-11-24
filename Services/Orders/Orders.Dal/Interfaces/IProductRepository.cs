@@ -12,4 +12,6 @@ public interface IProductRepository : IGenericRepository<ProductLocal>
     Task AdjustStockAsync(Guid storeId, Guid productId, int delta, string reason, CancellationToken ct = default);
     Task SyncProductAsync(ProductLocal product, CancellationToken ct = default);
     Task DecreaseStockAsync(Guid storeId, Guid productId, int quantity, CancellationToken ct = default);
+    Task UpdateSnapshotAsync(Guid productId, string productName, decimal newPrice, CancellationToken ct = default);
+    Task UpdateNameSnapshotAsync(Guid productId, string newName, CancellationToken ct = default);
 }

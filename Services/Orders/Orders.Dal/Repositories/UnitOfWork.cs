@@ -30,11 +30,13 @@ public sealed class UnitOfWork : IUnitOfWork
         Customers = new CustomerRepository(_connection, () => _transaction);
         Orders = new OrderRepository(_connection, () => _transaction);
         Products = new ProductRepository(_connection, () => _transaction);
+        ProcessedEvents = new ProcessedEventsRepository(_connection, () => _transaction);
     }
 
     public ICustomerRepository Customers { get; }
     public IOrderRepository Orders { get; }
     public IProductRepository Products { get; }
+    public IProcessedEventsRepository ProcessedEvents { get; }
 
     public async Task BeginTransactionAsync(IsolationLevel level = IsolationLevel.ReadCommitted, CancellationToken ct = default)
     {

@@ -130,4 +130,49 @@ public sealed class ProductRepository : BaseDapperRepository<ProductLocal>, IPro
             }
         });
     }
+
+    public async Task UpdateSnapshotAsync(Guid productId, string productName, decimal newPrice, CancellationToken ct = default)
+    {
+        await PostgresExceptionMapper.ExecuteWithMappingAsync(async () =>
+        {
+            await EnsureOpenAsync(ct);
+            const string sql = @"
+                UPDATE products_local
+                SET name = COALESCE(NULLIF(@Name, ''), name),
+                    price = @Price,
+                    updated_at = CURRENT_TIMESTAMP,
+                    updated_by = 'event_sync'
+                WHERE id = @ProductId;";
+
+            var cmd = new CommandDefinition(
+                sql,
+                new { ProductId = productId, Name = productName, Price = newPrice },
+                Transaction,
+                cancellationToken: ct);
+
+            await Connection.ExecuteAsync(cmd);
+        });
+    }
+
+    public async Task UpdateNameSnapshotAsync(Guid productId, string newName, CancellationToken ct = default)
+    {
+        await PostgresExceptionMapper.ExecuteWithMappingAsync(async () =>
+        {
+            await EnsureOpenAsync(ct);
+            const string sql = @"
+                UPDATE products_local
+                SET name = @Name,
+                    updated_at = CURRENT_TIMESTAMP,
+                    updated_by = 'event_sync'
+                WHERE id = @ProductId;";
+
+            var cmd = new CommandDefinition(
+                sql,
+                new { ProductId = productId, Name = newName },
+                Transaction,
+                cancellationToken: ct);
+
+            await Connection.ExecuteAsync(cmd);
+        });
+    }
 }
