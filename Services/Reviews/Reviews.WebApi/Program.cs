@@ -49,6 +49,9 @@ builder.Services.AddProblemDetails();
 
 builder.Services.AddApplication(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddSingleton<Reviews.Infrastructure.Persistence.IProcessedEventsStore, Reviews.Infrastructure.Persistence.MongoProcessedEventsStore>();
+builder.Services.AddScoped<Reviews.WebApi.IntegrationEvents.ProductRenamedHandler>();
+builder.Services.AddHostedService<Reviews.WebApi.IntegrationEvents.CatalogEventsConsumer>();
 
 builder.Services.AddAutoMapper(cfg =>
 {
