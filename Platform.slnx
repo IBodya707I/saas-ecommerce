@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/Services/Auth/">
+    <Project Path="Services/Auth/Auth.Api/Auth.Api.csproj" />
+  </Folder>
   <Folder Name="/Services/Catalog/">
     <Project Path="Services/Catalog/Catalog.Api/Catalog.Api.csproj" Id="21bd1e41-e98f-49a6-a959-6435f65897ae" />
     <Project Path="Services/Catalog/Catalog.Bll/Catalog.Bll.csproj" Id="ae2b0bb2-daf3-4f6f-a87c-fd891c04cf07" />
@@ -10,6 +13,9 @@
     <Project Path="Services/Orders/Orders.Bll/Orders.Bll.csproj" />
     <Project Path="Services/Orders/Orders.Dal/Orders.Dal.csproj" />
     <Project Path="Services/Orders/Orders.Domain/Orders.Domain.csproj" />
+  </Folder>
+  <Folder Name="/Services/Payments/">
+    <Project Path="Services/Payments/Payments.Api/Payments.Api.csproj" />
   </Folder>
   <Folder Name="/Services/Reviews/">
     <Project Path="Services/Reviews/Reviews.Application/Reviews.Application.csproj" />
