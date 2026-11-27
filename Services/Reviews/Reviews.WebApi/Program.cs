@@ -10,6 +10,9 @@ var builder = WebApplication.CreateBuilder(args);
 // 1. ServiceDefaults: Serilog, OpenTelemetry, HealthChecks, Service Discovery, Resilience
 builder.AddServiceDefaults();
 
+// RabbitMQ messaging client
+builder.AddRabbitMQClient("messaging");
+
 // Health checks: Database (reviews-db) & Redis (Degraded)
 builder.Services.AddReviewsHealthChecks(builder.Configuration);
 
@@ -46,6 +49,9 @@ builder.Services.AddProblemDetails();
 
 builder.Services.AddApplication(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddSingleton<Reviews.Infrastructure.Persistence.IProcessedEventsStore, Reviews.Infrastructure.Persistence.MongoProcessedEventsStore>();
+builder.Services.AddScoped<Reviews.WebApi.IntegrationEvents.ProductRenamedHandler>();
+builder.Services.AddHostedService<Reviews.WebApi.IntegrationEvents.CatalogEventsConsumer>();
 
 builder.Services.AddAutoMapper(cfg =>
 {

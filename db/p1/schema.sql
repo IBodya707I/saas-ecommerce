@@ -161,3 +161,8 @@ ON order_status_history (order_id, changed_at ASC, id ASC);
 CREATE INDEX IF NOT EXISTS ix_order_items_product_id 
 ON order_items (product_id) 
 WHERE is_deleted = false;
+
+CREATE TABLE IF NOT EXISTS processed_events (
+    event_id UUID PRIMARY KEY,
+    processed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

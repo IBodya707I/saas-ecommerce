@@ -44,7 +44,7 @@ WHERE tc.constraint_type = 'FOREIGN KEY';
 
 | Поле | Де зберігається (Replica) | Джерело (Master) | Політика узгодженості |
 | :--- | :--- | :--- | :--- |
-| `name`, `price`, `is_active` | `ordering_db.products_local` | `catalog_db.products` | **Eventual Consistency:** оновлюється асинхронно через події (напр. `ProductUpdated`) процедурою `usp_sync_product`. Застарілі події ігноруються за `source_updated_at`. Дозволяє валідувати кошик без HTTP-запитів до каталогу. |
+| `name`, `price`, `is_active` | `ordering_db.products_local` | `catalog_db.products` | **Eventual Consistency:** оновлюється асинхронно через події (`ProductPriceChangedEvent`, `ProductRenamedEvent`) процедурою `usp_sync_product`. Застарілі події ігноруються за `source_updated_at`. Дозволяє валідувати кошик без HTTP-запитів до каталогу. |
 | `product_name`, `unit_price` | `ordering_db.order_items` | `catalog_db.products` (через `products_local`) | **Snapshot (історичний знімок):** фіксується транзакційно в момент покупки, ніколи не оновлюється. Захищає фінансові дані чека від змін у каталозі. |
 | `store_id` | `ordering_db.customers`, `orders`, `order_items`, `products_local` | `catalog_db.stores.id` | **Логічне посилання за ID без FK:** значення незмінне, використовується як ідентифікатор тенанта. Існування магазину перевіряє прикладний код. |
 
@@ -52,7 +52,7 @@ WHERE tc.constraint_type = 'FOREIGN KEY';
 
 | Поле | Де зберігається (Replica) | Джерело (Master) | Політика узгодженості |
 | :--- | :--- | :--- | :--- |
-| `productName` | `showcase_db.reviews`, `product_discussions` | `catalog_db.products.name` | **Eventual Consistency:** оновлюється подією `ProductUpdated` (`updateMany` за `productId`). Денормалізація для швидкого рендерингу карток відгуків одним запитом. |
+| `productName` | `showcase_db.reviews`, `product_discussions` | `catalog_db.products.name` | **Eventual Consistency:** оновлюється подією `ProductRenamedEvent` (`updateMany` за `productId`). Денормалізація для швидкого рендерингу карток відгуків одним запитом. |
 | `storeName`, `slug` | `showcase_db.storefront_showcases` | `catalog_db.stores.name`, `slug` | **Eventual Consistency:** оновлюється подією `StoreRenamed`. Відображення шапки магазину на вітрині без JOIN-ів. |
 | `storeId`, `productId` | усі колекції `showcase_db` | `catalog_db.stores.id`, `products.id` | **Логічне посилання за ID без FK:** значення незмінні. |
 | `sender.id`, `sender.name` (тип `Merchant`) | `showcase_db.discussion_messages` | `catalog_db.users` | **Snapshot:** фіксується на момент повідомлення, не оновлюється. |
@@ -436,3 +436,68 @@ dotnet run --project Platform.AppHost/Platform.AppHost.csproj
   - `products.active_count` (кількість активних товарів).
 - **Метрики Polly**:
   - Метрика `Polly` зареєстрована в `ServiceDefaults` для візуалізації подій retry та circuit breaker у веб-панелі Aspire.
+
+---
+
+## 9. Подієва мікросервісна архітектура з RabbitMQ
+
+### 9.1. Топологія брокера повідомлень
+
+Декларативне створення топології відбувається під час старту споживачів (`RabbitMqTopology.DeclareTopologyAsync`) з використанням клієнтської бібліотеки **RabbitMQ.Client 7.x** (повністю асинхронний API на базі `IChannel`):
+
+```mermaid
+flowchart LR
+    CatalogApi["Catalog.Api (Publisher)"] -->|product.price_changed<br/>product.renamed| Exchange["Topic Exchange:<br/>catalog-events"]
+    
+    Exchange -->|product.*| OrdersQueue["Queue:<br/>orders.catalog-sync"]
+    Exchange -->|product.*| ReviewsQueue["Queue:<br/>reviews.catalog-sync"]
+    
+    OrdersQueue -->|x-dead-letter-exchange| DLX["Fanout DLX:<br/>catalog-events.dlx"]
+    ReviewsQueue -->|x-dead-letter-exchange| DLX
+    
+    DLX --> OrdersDLQ["DLQ:<br/>orders.catalog-sync.dlq"]
+    DLX --> ReviewsDLQ["DLQ:<br/>reviews.catalog-sync.dlq"]
+    
+    OrdersQueue --> OrdersConsumer["Orders Consumer<br/>(BackgroundService)"]
+    ReviewsQueue --> ReviewsConsumer["Reviews Consumer<br/>(BackgroundService)"]
+```
+
+| Елемент топології | Тип / Назва | Призначення |
+| :--- | :--- | :--- |
+| **Topic Exchange** | `catalog-events` (durable) | Головний обмінник для трансляції подій зміни стану сутностей каталогу. |
+| **Dead Letter Exchange (DLX)** | `catalog-events.dlx` (fanout, durable) | Обмінник для повідомлень, які не вдалося обробити після вичерпання спроб або через некоректний формат (poison message). |
+| **Черга Orders** | `orders.catalog-sync` | Окрема черга сервісу `Orders`, зв'язана за ключем `product.*` з аргументом `x-dead-letter-exchange: catalog-events.dlx`. |
+| **Черга Reviews** | `reviews.catalog-sync` | Окрема черга сервісу `Reviews`, зв'язана за ключем `product.*` з аргументом `x-dead-letter-exchange: catalog-events.dlx`. |
+| **Черги DLQ** | `orders.catalog-sync.dlq`, `reviews.catalog-sync.dlq` | Черги мертвої літери для аналізу помилкових повідомлень. |
+
+### 9.2. Модель подій та гарантії доставки
+
+1. **Integration Events:**
+   - Базовий незмінний record `IntegrationEvent` містить `EventId` (Guid), `OccurredAt` (UTC) та `CorrelationId`.
+   - Події публікуються сервісом `Catalog`:
+     - `ProductPriceChangedEvent(ProductId, ProductName, OldPrice, NewPrice)` за ключем `product.price_changed`;
+     - `ProductRenamedEvent(ProductId, OldName, NewName)` за ключем `product.renamed`.
+2. **Публікація лише після збереження (Transactional Boundary):**
+   - У `ProductService` виклик `_publisher.PublishAsync(...)` відбувається суворо **після** успішного завершення `SaveChangesAsync`. При збої бази даних подія в брокер не надсилається.
+   - Повідомлення надсилаються як стійкі (`Persistent = true`) у форматі `application/json` (camelCase) з унікальним `MessageId` та заголовком `x-correlation-id`.
+
+### 9.3. Реплікація даних та ідемпотентність споживачів
+
+1. **Сервіс Замовлень (`Orders`):**
+   - **Ідемпотентність:** таблиця `processed_events` у PostgreSQL. Метод `TryAddAsync` використовує `INSERT ... ON CONFLICT (event_id) DO NOTHING` у спільній транзакції з бізнес-змінами.
+   - **Реплікація:** оновлюються лише поля в репліці `products_local`. Історичні ціни у вже оформлених замовленнях (`order_items.unit_price`) не змінюються (Snapshot).
+2. **Сервіс Відгуків (`Reviews`):**
+   - **Ідемпотентність:** колекція `processed_events` у MongoDB з перехопленням помилки дубліката ключа (`DuplicateKey`).
+   - **Реплікація:** оновлення денормалізованої назви `productName` в усіх відгуках про даний товар за допомогою `_reviews.UpdateManyAsync` та `Builders<Review>.Update.Set(r => r.ProductName, e.ProductName)`.
+
+### 9.4. Відмовостійкість (Resilience), DLQ та Tracing
+
+1. **Ручне підтвердження (Manual Ack / Nack):**
+   - Споживачі запускаються як `BackgroundService` з `autoAck: false` та `prefetchCount: 10`.
+   - При успішній обробці виконується `BasicAckAsync`.
+   - При виявленні пошкодженого або невалідної схеми повідомлення (`JsonException`) викликається `BasicNackAsync(requeue: false)`, і повідомлення миттєво відправляється в DLQ без повторних циклів.
+   - При тимчасових збоях (недоступність БД тощо) спрацьовує повторна публікація зі збільшенням лічильника `x-retry-count` (до 3 спроб). Після перевищення ліміту повідомлення відправляється в DLQ.
+2. **Розподілене трасування (Distributed Tracing):**
+   - Бібліотека `TracePropagation` впроваджує W3C заголовок `traceparent` під час публікації.
+   - Споживачі створюють дочірню активність `Consumer` через `TracePropagation.StartConsumerActivity` з тегами `messaging.system = rabbitmq`, `messaging.destination.name` та `messaging.message.id`.
+   - Джерело активності `Platform.Messaging` зареєстровано в `Platform.ServiceDefaults`, завдяки чому в .NET Aspire Dashboard видно безперервний ланцюг: **HTTP-запит → публікація в RabbitMQ → споживання воркером → запити до БД**.

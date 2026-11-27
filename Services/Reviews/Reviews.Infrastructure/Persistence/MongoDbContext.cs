@@ -12,6 +12,7 @@ public class MongoDbContext
     public IMongoCollection<Review> Reviews => Database.GetCollection<Review>("reviews");
     public IMongoCollection<StorefrontShowcase> StorefrontShowcases => Database.GetCollection<StorefrontShowcase>("storefront_showcases");
     public IMongoCollection<ProductDiscussion> ProductDiscussions => Database.GetCollection<ProductDiscussion>("product_discussions");
+    public IMongoCollection<ProcessedEventDocument> ProcessedEvents => Database.GetCollection<ProcessedEventDocument>("processed_events");
 
     public MongoDbContext(IOptions<MongoDbOptions> options)
     {
